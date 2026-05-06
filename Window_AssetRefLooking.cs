@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEngine;
 #if UNITY_EDITOR
@@ -8,6 +9,22 @@ using UnityEditor;
 namespace NamPhuThuy.AssetPipelineTools
 {
 #if UNITY_EDITOR
+    [System.Flags]
+    public enum AssetTypeFilter
+    {
+        Prefab          = 1 << 0,
+        Scene           = 1 << 1,
+        Material        = 1 << 2,
+        ScriptableObject = 1 << 3,
+        Script          = 1 << 4,
+        Shader          = 1 << 5,
+        Texture         = 1 << 6,
+        Model3D         = 1 << 7,
+        Animation       = 1 << 8,
+
+        All = Prefab | Scene | Material | ScriptableObject | Script | Shader | Texture | Model3D | Animation
+    }
+
     [System.Serializable]
     public class RefLookingEntry
     {
@@ -32,8 +49,10 @@ namespace NamPhuThuy.AssetPipelineTools
 
         // Filter
         private string _filterText = "";
-        private readonly string[] _filterTypeOptions = { "All", "Prefab", "Scene", "Material", "ScriptableObject", "Script", "Shader", "Texture", "AnimationClip" };
-        private int _filterTypeIndex;
+        private AssetTypeFilter _filterTypeMask = AssetTypeFilter.All;
+
+        // Move to folder
+        private DefaultAsset _targetFolder;
         #endregion
 
         #region Menu Item
@@ -186,16 +205,51 @@ namespace NamPhuThuy.AssetPipelineTools
 
         private void DrawFilterSection()
         {
-            EditorGUILayout.BeginHorizontal(GUI.skin.box);
+            EditorGUILayout.BeginVertical(GUI.skin.box);
+
+            // Row 1: Text filter
+            EditorGUILayout.BeginHorizontal();
             GUILayout.Label("Filter:", EditorStyles.miniLabel, GUILayout.Width(38));
-            _filterTypeIndex = EditorGUILayout.Popup(_filterTypeIndex, _filterTypeOptions, GUILayout.Width(130));
             _filterText = EditorGUILayout.TextField(_filterText);
             if (GUILayout.Button("Clear", EditorStyles.miniButton, GUILayout.Width(45)))
             {
                 _filterText = "";
-                _filterTypeIndex = 0;
+                _filterTypeMask = AssetTypeFilter.All;
             }
             EditorGUILayout.EndHorizontal();
+
+            // Row 2: Type toggle buttons
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label("Types:", EditorStyles.miniLabel, GUILayout.Width(38));
+
+            // All / None shortcuts
+            if (GUILayout.Button("All", EditorStyles.miniButton, GUILayout.Width(30)))
+                _filterTypeMask = AssetTypeFilter.All;
+            if (GUILayout.Button("None", EditorStyles.miniButton, GUILayout.Width(38)))
+                _filterTypeMask = 0;
+
+            GUILayout.Space(5);
+
+            // Individual toggles for each type flag
+            foreach (AssetTypeFilter flag in System.Enum.GetValues(typeof(AssetTypeFilter)))
+            {
+                if (flag == AssetTypeFilter.All || flag == 0) continue;
+
+                bool isOn = (_filterTypeMask & flag) != 0;
+                bool newIsOn = GUILayout.Toggle(isOn, flag.ToString(), EditorStyles.miniButton, GUILayout.MinWidth(50));
+                if (newIsOn != isOn)
+                {
+                    if (newIsOn)
+                        _filterTypeMask |= flag;
+                    else
+                        _filterTypeMask &= ~flag;
+                }
+            }
+
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.EndVertical();
         }
 
         private void DrawActionButtons()
@@ -224,7 +278,35 @@ namespace NamPhuThuy.AssetPipelineTools
             if (!hasResults) return;
 
             EditorGUILayout.BeginVertical(GUI.skin.box);
+
+            // Results header with Move controls
+            EditorGUILayout.BeginHorizontal();
             GUILayout.Label("Results", EditorStyles.boldLabel);
+            GUILayout.FlexibleSpace();
+
+            GUILayout.Label("Target Folder:", EditorStyles.miniLabel, GUILayout.Width(78));
+            _targetFolder = (DefaultAsset)EditorGUILayout.ObjectField(
+                _targetFolder, typeof(DefaultAsset), false, GUILayout.Width(200));
+
+            // Collect all filtered paths to determine count and enable/disable button
+            var allFilteredPaths = new List<string>();
+            foreach (var entry in _entries)
+            {
+                if (entry.targetAsset == null || entry.referencePaths.Count == 0) continue;
+                allFilteredPaths.AddRange(GetFilteredPaths(entry.referencePaths));
+            }
+            allFilteredPaths = allFilteredPaths.Distinct().ToList();
+
+            bool canMove = _targetFolder != null && allFilteredPaths.Count > 0
+                           && AssetDatabase.IsValidFolder(AssetDatabase.GetAssetPath(_targetFolder));
+            GUI.enabled = canMove;
+            if (GUILayout.Button($"Move ({allFilteredPaths.Count}) to Folder", GUILayout.Width(180)))
+            {
+                MoveResultsToFolder(allFilteredPaths);
+            }
+            GUI.enabled = true;
+
+            EditorGUILayout.EndHorizontal();
             GUILayout.Space(5);
 
             _resultsScrollPos = EditorGUILayout.BeginScrollView(_resultsScrollPos, GUILayout.MinHeight(300));
@@ -487,6 +569,121 @@ namespace NamPhuThuy.AssetPipelineTools
 
             return null;
         }
+        /// <summary>
+        /// Moves all filtered result assets to the target folder.
+        /// Updates the stored reference paths so the results panel stays in sync.
+        /// </summary>
+        private void MoveResultsToFolder(List<string> pathsToMove)
+        {
+            string targetFolderPath = AssetDatabase.GetAssetPath(_targetFolder);
+
+            if (!AssetDatabase.IsValidFolder(targetFolderPath))
+            {
+                EditorUtility.DisplayDialog("Invalid Folder",
+                    $"\"{targetFolderPath}\" is not a valid folder.", "OK");
+                return;
+            }
+
+            // Filter out assets already in the target folder
+            var assetsToMove = pathsToMove
+                .Where(p => !p.StartsWith(targetFolderPath + "/"))
+                .Distinct()
+                .ToList();
+
+            if (assetsToMove.Count == 0)
+            {
+                EditorUtility.DisplayDialog("Nothing to Move",
+                    "All result assets are already in the target folder.", "OK");
+                return;
+            }
+
+            // Confirmation dialog
+            bool confirmed = EditorUtility.DisplayDialog(
+                "Move Assets",
+                $"Move {assetsToMove.Count} asset(s) to:\n{targetFolderPath}\n\nThis operation can be undone.",
+                "Move", "Cancel");
+
+            if (!confirmed) return;
+
+            Undo.IncrementCurrentGroup();
+            Undo.SetCurrentGroupName("Move Results to Folder");
+            int undoGroup = Undo.GetCurrentGroup();
+
+            int movedCount = 0;
+            int failedCount = 0;
+            var pathMapping = new Dictionary<string, string>(); // oldPath → newPath
+
+            try
+            {
+                for (int i = 0; i < assetsToMove.Count; i++)
+                {
+                    string sourcePath = assetsToMove[i];
+                    string fileName = Path.GetFileName(sourcePath);
+                    string destPath = targetFolderPath + "/" + fileName;
+
+                    EditorUtility.DisplayProgressBar(
+                        "Moving Assets",
+                        $"Moving {fileName}... ({i + 1}/{assetsToMove.Count})",
+                        (float)i / assetsToMove.Count);
+
+                    // Handle name collision: append (1), (2), etc.
+                    if (sourcePath != destPath && AssetDatabase.LoadMainAssetAtPath(destPath) != null)
+                    {
+                        string nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+                        string ext = Path.GetExtension(fileName);
+                        int suffix = 1;
+                        do
+                        {
+                            destPath = $"{targetFolderPath}/{nameWithoutExt} ({suffix}){ext}";
+                            suffix++;
+                        } while (AssetDatabase.LoadMainAssetAtPath(destPath) != null);
+                    }
+
+                    string error = AssetDatabase.MoveAsset(sourcePath, destPath);
+
+                    if (string.IsNullOrEmpty(error))
+                    {
+                        movedCount++;
+                        pathMapping[sourcePath] = destPath;
+                    }
+                    else
+                    {
+                        failedCount++;
+                        Debug.LogWarning($"Failed to move {sourcePath} → {destPath}: {error}");
+                    }
+                }
+
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+            }
+            finally
+            {
+                EditorUtility.ClearProgressBar();
+            }
+
+            Undo.CollapseUndoOperations(undoGroup);
+
+            // Update stored paths in all entries so the results panel stays accurate
+            foreach (var entry in _entries)
+            {
+                for (int i = 0; i < entry.referencePaths.Count; i++)
+                {
+                    if (pathMapping.TryGetValue(entry.referencePaths[i], out string newPath))
+                    {
+                        entry.referencePaths[i] = newPath;
+                    }
+                }
+            }
+
+            string message = $"Move complete! Moved {movedCount} asset(s) to {targetFolderPath}.";
+            if (failedCount > 0)
+                message += $" ({failedCount} failed — see Console for details.)";
+
+            Debug.Log(message);
+            EditorUtility.DisplayDialog("Move Complete", message, "OK");
+
+            Repaint();
+        }
         #endregion
 
         #region Helpers
@@ -494,11 +691,15 @@ namespace NamPhuThuy.AssetPipelineTools
         {
             IEnumerable<string> result = paths;
 
-            // Filter by type
-            if (_filterTypeIndex > 0)
+            // Filter by type (if not All)
+            if (_filterTypeMask != AssetTypeFilter.All && _filterTypeMask != 0)
             {
-                string typeFilter = _filterTypeOptions[_filterTypeIndex];
-                result = result.Where(p => MatchesTypeFilter(p, typeFilter));
+                result = result.Where(p => MatchesTypeMask(p, _filterTypeMask));
+            }
+            else if (_filterTypeMask == 0)
+            {
+                // None selected → show nothing
+                return new List<string>();
             }
 
             // Filter by text
@@ -511,22 +712,25 @@ namespace NamPhuThuy.AssetPipelineTools
             return result.ToList();
         }
 
-        private bool MatchesTypeFilter(string assetPath, string typeFilter)
+        private bool MatchesTypeMask(string assetPath, AssetTypeFilter mask)
         {
-            switch (typeFilter)
-            {
-                case "Prefab":            return assetPath.EndsWith(".prefab");
-                case "Scene":             return assetPath.EndsWith(".unity");
-                case "Material":          return assetPath.EndsWith(".mat");
-                case "ScriptableObject":  return assetPath.EndsWith(".asset");
-                case "Script":            return assetPath.EndsWith(".cs");
-                case "Shader":            return assetPath.EndsWith(".shader") || assetPath.EndsWith(".shadergraph");
-                case "Texture":           return assetPath.EndsWith(".png") || assetPath.EndsWith(".jpg") ||
-                                                 assetPath.EndsWith(".tga") || assetPath.EndsWith(".psd") ||
-                                                 assetPath.EndsWith(".exr");
-                case "AnimationClip":     return assetPath.EndsWith(".anim") || assetPath.EndsWith(".controller");
-                default:                  return true;
-            }
+            string lower = assetPath.ToLowerInvariant();
+
+            if ((mask & AssetTypeFilter.Prefab) != 0 && lower.EndsWith(".prefab")) return true;
+            if ((mask & AssetTypeFilter.Scene) != 0 && lower.EndsWith(".unity")) return true;
+            if ((mask & AssetTypeFilter.Material) != 0 && lower.EndsWith(".mat")) return true;
+            if ((mask & AssetTypeFilter.ScriptableObject) != 0 && lower.EndsWith(".asset")) return true;
+            if ((mask & AssetTypeFilter.Script) != 0 && lower.EndsWith(".cs")) return true;
+            if ((mask & AssetTypeFilter.Shader) != 0 && (lower.EndsWith(".shader") || lower.EndsWith(".shadergraph") || lower.EndsWith(".hlsl"))) return true;
+            if ((mask & AssetTypeFilter.Texture) != 0 && (lower.EndsWith(".png") || lower.EndsWith(".jpg") || lower.EndsWith(".jpeg") ||
+                                                          lower.EndsWith(".tga") || lower.EndsWith(".psd") || lower.EndsWith(".exr") ||
+                                                          lower.EndsWith(".hdr"))) return true;
+            if ((mask & AssetTypeFilter.Model3D) != 0 && (lower.EndsWith(".fbx") || lower.EndsWith(".obj") || lower.EndsWith(".blend") ||
+                                                          lower.EndsWith(".gltf") || lower.EndsWith(".glb") || lower.EndsWith(".dae") ||
+                                                          lower.EndsWith(".3ds") || lower.EndsWith(".max"))) return true;
+            if ((mask & AssetTypeFilter.Animation) != 0 && (lower.EndsWith(".anim") || lower.EndsWith(".controller") || lower.EndsWith(".overridecontroller"))) return true;
+
+            return false;
         }
 
         private void HandleDragAndDrop(Rect dropRect)
