@@ -1,0 +1,266 @@
+/* ═══════════════════════════════════════════════════════════
+   Window_AssetNaming.uss
+   Place at: Assets/Editor/AssetNaming/Window_AssetNaming.uss
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Root ──────────────────────────────────────────────────── */
+.root {
+    flex-direction: column;
+    padding: 8px;
+    background-color: #2b2b2b;
+}
+
+/* ── Header ────────────────────────────────────────────────── */
+.header-label {
+    font-size: 16px;
+    -unity-font-style: bold;
+    -unity-text-align: upper-center;
+    color: #e8e8e8;
+    margin-bottom: 6px;
+    margin-top: 4px;
+}
+
+/* ── Section box ───────────────────────────────────────────── */
+.section-box {
+    background-color: #3a3a3a;
+    border-color: #555555;
+    border-width: 1px;
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 10px;
+}
+
+.section-title {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: #d4d4d4;
+    margin-bottom: 6px;
+}
+
+/* ── Toolbar row ───────────────────────────────────────────── */
+.toolbar-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+
+.toolbar-btn {
+    margin-left: 4px;
+    padding: 2px 8px;
+    background-color: #4a4a4a;
+    color: #e0e0e0;
+    border-color: #666666;
+    border-radius: 3px;
+}
+
+.toolbar-btn:hover {
+    background-color: #5a5a5a;
+}
+
+/* ── Apply button ──────────────────────────────────────────── */
+.apply-btn {
+    align-self: center;
+    padding: 6px 20px;
+    margin-top: 10px;
+    background-color: #3d6b9e;
+    color: white;
+    -unity-font-style: bold;
+    border-radius: 4px;
+    border-color: #2a4f7a;
+}
+
+.apply-btn:hover {
+    background-color: #4d7bb0;
+}
+
+/* ── Rename All button ─────────────────────────────────────── */
+.rename-all-btn {
+    height: 40px;
+    font-size: 14px;
+    -unity-font-style: bold;
+    background-color: #4a7c40;
+    color: white;
+    border-radius: 4px;
+    border-color: #355a2d;
+    margin-top: 8px;
+}
+
+.rename-all-btn:hover {
+    background-color: #5a9050;
+}
+
+/* ── Rule row (global template) ────────────────────────────── */
+.rule-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+/* ── Part columns ──────────────────────────────────────────── */
+.part-column {
+    flex-direction: column;
+    min-width: 240px;
+    margin-right: 10px;
+}
+
+.col-label {
+    font-size: 11px;
+    color: #aaaaaa;
+    margin-bottom: 2px;
+}
+
+.main-name-col {
+    background-color: #404040;
+    border-color: #606060;
+    border-width: 1px;
+    border-radius: 4px;
+    padding: 6px;
+    margin-right: 10px;
+    min-width: 200px;
+}
+
+/* ── Name part box ─────────────────────────────────────────── */
+.name-part-box {
+    background-color: #424242;
+    border-color: #5a5a5a;
+    border-width: 1px;
+    border-radius: 3px;
+    padding: 4px;
+    margin-bottom: 4px;
+}
+
+.part-row {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* ── Add part button ───────────────────────────────────────── */
+.add-part-btn {
+    background-color: #505050;
+    color: #c8e6c9;
+    border-color: #606060;
+    border-radius: 3px;
+    padding: 3px 8px;
+    margin-bottom: 4px;
+    height: 24px;
+}
+
+.add-part-btn:hover {
+    background-color: #606060;
+}
+
+/* ── Remove button ─────────────────────────────────────────── */
+.remove-btn {
+    width: 20px;
+    height: 20px;
+    background-color: #6b3535;
+    color: #ffaaaa;
+    border-color: #8b4545;
+    border-radius: 3px;
+    padding: 0;
+    margin-left: 4px;
+    font-size: 10px;
+}
+
+.remove-btn:hover {
+    background-color: #8b4545;
+}
+
+/* ── Replace row ───────────────────────────────────────────── */
+.replace-row {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+    padding: 4px;
+    background-color: #333333;
+    border-radius: 3px;
+}
+
+.replace-row Label {
+    margin-left: 4px;
+    margin-right: 4px;
+    color: #cccccc;
+    font-size: 11px;
+}
+
+/* ── Record row ────────────────────────────────────────────── */
+.record-row {
+    flex-direction: row;
+    align-items: center;
+    background-color: #383838;
+    border-color: #505050;
+    border-width: 1px;
+    border-radius: 3px;
+    padding: 4px;
+    margin-bottom: 3px;
+    flex-wrap: wrap;
+}
+
+.record-row:hover {
+    background-color: #404040;
+}
+
+/* ── Inline rule (compact inside record rows) ──────────────── */
+.inline-rule {
+    flex-direction: row;
+    align-items: center;
+    flex-grow: 1;
+    flex-wrap: wrap;
+}
+
+.inline-rule .part-column {
+    min-width: 140px;
+    margin-right: 6px;
+}
+
+.inline-rule .main-name-col {
+    min-width: 140px;
+    padding: 3px;
+}
+
+.inline-rule .name-part-box {
+    padding: 2px;
+}
+
+.inline-rule .add-part-btn {
+    font-size: 10px;
+    height: 20px;
+    padding: 1px 5px;
+}
+
+/* ── Preview label ─────────────────────────────────────────── */
+.preview-label {
+    -unity-font-style: bold;
+    color: #7ec8e3;
+    font-size: 12px;
+    margin-left: 8px;
+    white-space: normal;
+    min-width: 120px;
+}
+
+/* ── Drop area ─────────────────────────────────────────────── */
+.drop-area {
+    height: 44px;
+    background-color: #303030;
+    border-color: #5a5a5a;
+    border-width: 1px;
+    border-style: solid;
+    border-radius: 4px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 6px;
+}
+
+.drop-area:hover {
+    border-color: #88aabb;
+    background-color: #363636;
+}
+
+.drop-label {
+    color: #888888;
+    font-size: 12px;
+    -unity-font-style: italic;
+}
