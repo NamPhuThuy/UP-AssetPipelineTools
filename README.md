@@ -37,8 +37,7 @@ Batch asset renaming tool with a template-based naming system.
 ---
 
 # Window_AssetRefLooking
-
-**Menu:** `NamPhuThuy → Assets Pipeline → Window - Asset Ref Looking`
+**Menu:** `NamPhuThuy → Assets Pipeline → Window UITK - Asset Ref Looking`
 
 Find all references to/from project assets and scene GameObjects.
 
@@ -64,3 +63,17 @@ Copy or swap shader properties between two lists of materials.
 - Uses buffered copies internally to avoid cross-overwriting issues.
 - Full Unity Undo support.
 - Both lists must have the same number of materials.
+
+---
+
+# Window_AssetFilter
+
+**Menu:** `NamPhuThuy → Assets Pipeline → Window - AssetFilter`
+
+Filter and extract specific asset types from one or more target folders.
+
+## Features
+- **Target Folders:** add multiple folders to search in via drag & drop or selection.
+- **Filtering:** dynamically filter all found assets by text search and asset type (Prefab, Material, Texture, Shader, Script, etc.).
+- **Results Preview:** view all filtered assets in a clean list with ping/select buttons.
+- **Batch Move:** batch-move all filtered results into a new target folder, with automatic name collision handling.
