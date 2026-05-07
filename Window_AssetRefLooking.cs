@@ -26,12 +26,20 @@ namespace NamPhuThuy.AssetPipelineTools
     }
 
     [System.Serializable]
+    public class ReferenceContext
+    {
+        public string assetPath;
+        public string contextInfo;
+    }
+
+    [System.Serializable]
     public class RefLookingEntry
     {
         public Object targetAsset;
         public bool isSceneObject;
         public bool foldout = true;
         public List<string> referencePaths = new List<string>();
+        public List<ReferenceContext> referenceContexts = new List<ReferenceContext>();
     }
 
     public class Window_AssetRefLooking : EditorWindow
@@ -50,6 +58,7 @@ namespace NamPhuThuy.AssetPipelineTools
         // Filter
         private string _filterText = "";
         private AssetTypeFilter _filterTypeMask = AssetTypeFilter.All;
+        private bool _showContextDetails = false;
 
         // Move to folder
         private DefaultAsset _targetFolder;
@@ -176,6 +185,7 @@ namespace NamPhuThuy.AssetPipelineTools
                     _entries[i].isSceneObject = !AssetDatabase.Contains(_entries[i].targetAsset)
                                                 && _entries[i].targetAsset is GameObject;
                     _entries[i].referencePaths.Clear();
+                    _entries[i].referenceContexts.Clear();
                 }
 
                 // Badge to indicate source
@@ -326,6 +336,12 @@ namespace NamPhuThuy.AssetPipelineTools
             GUI.enabled = true;
 
             EditorGUILayout.EndHorizontal();
+
+            // Options row
+            EditorGUILayout.BeginHorizontal();
+            _showContextDetails = EditorGUILayout.ToggleLeft("Show Context Details (Scene Objects Only)", _showContextDetails, GUILayout.Width(280));
+            EditorGUILayout.EndHorizontal();
+
             GUILayout.Space(5);
 
             _resultsScrollPos = EditorGUILayout.BeginScrollView(_resultsScrollPos, GUILayout.MinHeight(300));
@@ -386,6 +402,25 @@ namespace NamPhuThuy.AssetPipelineTools
                     }
 
                     EditorGUILayout.EndHorizontal();
+
+                    if (_showContextDetails && entry.isSceneObject)
+                    {
+                        var contexts = entry.referenceContexts
+                            .Where(c => c.assetPath == refPath)
+                            .Select(c => c.contextInfo)
+                            .Distinct()
+                            .ToList();
+
+                        if (contexts.Count > 0)
+                        {
+                            EditorGUI.indentLevel++;
+                            foreach (var ctx in contexts)
+                            {
+                                EditorGUILayout.LabelField($"↳ {ctx}", EditorStyles.miniLabel);
+                            }
+                            EditorGUI.indentLevel--;
+                        }
+                    }
                 }
 
                 EditorGUI.indentLevel--;
@@ -519,6 +554,7 @@ namespace NamPhuThuy.AssetPipelineTools
                     (float)e / sceneEntries.Count);
 
                 var usedAssetPaths = new HashSet<string>();
+                entry.referenceContexts.Clear();
 
                 // Get all components on this GameObject and its children
                 Component[] components = go.GetComponentsInChildren<Component>(true);
@@ -538,7 +574,10 @@ namespace NamPhuThuy.AssetPipelineTools
                     {
                         string scriptPath = AssetDatabase.GetAssetPath(script);
                         if (!string.IsNullOrEmpty(scriptPath) && scriptPath.StartsWith("Assets/"))
+                        {
                             usedAssetPaths.Add(scriptPath);
+                            entry.referenceContexts.Add(new ReferenceContext { assetPath = scriptPath, contextInfo = $"Script: {component.GetType().Name}" });
+                        }
                     }
 
                     // ── Explicit handling for common component types ──
@@ -552,7 +591,10 @@ namespace NamPhuThuy.AssetPipelineTools
                             if (mat == null || !AssetDatabase.Contains(mat)) continue;
                             string matPath = AssetDatabase.GetAssetPath(mat);
                             if (!string.IsNullOrEmpty(matPath) && matPath.StartsWith("Assets/"))
+                            {
                                 usedAssetPaths.Add(matPath);
+                                entry.referenceContexts.Add(new ReferenceContext { assetPath = matPath, contextInfo = $"Renderer ({renderer.GetType().Name}) → Material" });
+                            }
                         }
                     }
 
@@ -563,7 +605,10 @@ namespace NamPhuThuy.AssetPipelineTools
                         {
                             string ctrlPath = AssetDatabase.GetAssetPath(ctrl);
                             if (!string.IsNullOrEmpty(ctrlPath) && ctrlPath.StartsWith("Assets/"))
+                            {
                                 usedAssetPaths.Add(ctrlPath);
+                                entry.referenceContexts.Add(new ReferenceContext { assetPath = ctrlPath, contextInfo = "Animator → Controller" });
+                            }
                         }
                     }
 
@@ -585,6 +630,7 @@ namespace NamPhuThuy.AssetPipelineTools
                         if (!string.IsNullOrEmpty(refPath) && refPath.StartsWith("Assets/"))
                         {
                             usedAssetPaths.Add(refPath);
+                            entry.referenceContexts.Add(new ReferenceContext { assetPath = refPath, contextInfo = $"{component.GetType().Name} → {prop.name}" });
                         }
                     }
                 }
@@ -604,12 +650,16 @@ namespace NamPhuThuy.AssetPipelineTools
                     int[] texPropIds = mat.GetTexturePropertyNameIDs();
                     foreach (int propId in texPropIds)
                     {
+                        string propName = mat.GetTexturePropertyNames()[System.Array.IndexOf(texPropIds, propId)];
                         Texture tex = mat.GetTexture(propId);
                         if (tex != null)
                         {
                             string texPath = AssetDatabase.GetAssetPath(tex);
                             if (!string.IsNullOrEmpty(texPath) && texPath.StartsWith("Assets/"))
+                            {
                                 usedAssetPaths.Add(texPath);
+                                entry.referenceContexts.Add(new ReferenceContext { assetPath = texPath, contextInfo = $"Material ({mat.name}) → Texture ({propName})" });
+                            }
                         }
                     }
 
@@ -622,7 +672,10 @@ namespace NamPhuThuy.AssetPipelineTools
                         {
                             string matRefPath = AssetDatabase.GetAssetPath(matProp.objectReferenceValue);
                             if (!string.IsNullOrEmpty(matRefPath) && matRefPath.StartsWith("Assets/"))
+                            {
                                 usedAssetPaths.Add(matRefPath);
+                                entry.referenceContexts.Add(new ReferenceContext { assetPath = matRefPath, contextInfo = $"Material ({mat.name}) → {matProp.name}" });
+                            }
                         }
                     }
                 }
@@ -632,12 +685,14 @@ namespace NamPhuThuy.AssetPipelineTools
                 var discoveredPaths = usedAssetPaths.ToList();
                 foreach (string assetPath in discoveredPaths)
                 {
+                    string assetName = System.IO.Path.GetFileNameWithoutExtension(assetPath);
                     string[] deps = AssetDatabase.GetDependencies(assetPath, true);
                     foreach (string dep in deps)
                     {
                         if (dep != assetPath && dep.StartsWith("Assets/"))
                         {
                             usedAssetPaths.Add(dep);
+                            entry.referenceContexts.Add(new ReferenceContext { assetPath = dep, contextInfo = $"Dependency of [{assetName}]" });
                         }
                     }
                 }

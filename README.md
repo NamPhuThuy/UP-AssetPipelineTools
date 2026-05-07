@@ -46,6 +46,7 @@ Find all references to/from project assets and scene GameObjects.
 - **Project Assets:** scans the entire project to find which assets reference the target.
 - **Scene GameObjects:** inspects all components (including children) to list every project asset they use.
 - **Filtering:** filter results by text search and asset type (Prefab, Material, Texture, Shader, Script, etc.).
+- **Reference Contexts:** toggle "Show Context Details" to see exactly which component, material, or property is using a discovered asset (Scene Objects only).
 - **Move to Folder:** batch-move all filtered results into a target folder with collision handling.
 - Add targets via drag & drop from either Project or Hierarchy.
 
