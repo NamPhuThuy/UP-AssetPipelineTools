@@ -56,7 +56,7 @@ namespace NamPhuThuy.AssetPipelineTools
         #endregion
 
         #region Menu Item
-        [MenuItem("NamPhuThuy/Assets Pipeline/Asset Ref Looking")]
+        [MenuItem("NamPhuThuy/Assets Pipeline/Window - Asset Ref Looking")]
         public static void ShowWindow()
         {
             var window = GetWindow<Window_AssetRefLooking>("Asset Ref Looking");
@@ -230,13 +230,30 @@ namespace NamPhuThuy.AssetPipelineTools
 
             GUILayout.Space(5);
 
+            float windowWidth = EditorGUIUtility.currentViewWidth - 20; // Accounts for scrollbar & padding
+            float currentWidth = 120; // Start with approx width of Label + All + None + Space
+
             // Individual toggles for each type flag
             foreach (AssetTypeFilter flag in System.Enum.GetValues(typeof(AssetTypeFilter)))
             {
                 if (flag == AssetTypeFilter.All || flag == 0) continue;
 
+                string label = flag.ToString();
+                Vector2 btnSize = EditorStyles.miniButton.CalcSize(new GUIContent(label));
+                float buttonWidth = btnSize.x + 4;
+
+                if (currentWidth + buttonWidth > windowWidth)
+                {
+                    GUILayout.FlexibleSpace();
+                    EditorGUILayout.EndHorizontal();
+                    
+                    EditorGUILayout.BeginHorizontal();
+                    GUILayout.Space(42); // Indent to align with other buttons
+                    currentWidth = 42;
+                }
+
                 bool isOn = (_filterTypeMask & flag) != 0;
-                bool newIsOn = GUILayout.Toggle(isOn, flag.ToString(), EditorStyles.miniButton, GUILayout.MinWidth(50));
+                bool newIsOn = GUILayout.Toggle(isOn, label, EditorStyles.miniButton, GUILayout.Width(btnSize.x));
                 if (newIsOn != isOn)
                 {
                     if (newIsOn)
@@ -244,6 +261,8 @@ namespace NamPhuThuy.AssetPipelineTools
                     else
                         _filterTypeMask &= ~flag;
                 }
+
+                currentWidth += buttonWidth;
             }
 
             GUILayout.FlexibleSpace();
@@ -522,7 +541,33 @@ namespace NamPhuThuy.AssetPipelineTools
                             usedAssetPaths.Add(scriptPath);
                     }
 
-                    // Walk all serialized properties to find Object references
+                    // ── Explicit handling for common component types ──
+                    // SerializedProperty.NextVisible can miss native array properties
+                    // on Renderer/Animator in some Unity versions, so we read them directly.
+
+                    if (component is Renderer renderer)
+                    {
+                        foreach (var mat in renderer.sharedMaterials)
+                        {
+                            if (mat == null || !AssetDatabase.Contains(mat)) continue;
+                            string matPath = AssetDatabase.GetAssetPath(mat);
+                            if (!string.IsNullOrEmpty(matPath) && matPath.StartsWith("Assets/"))
+                                usedAssetPaths.Add(matPath);
+                        }
+                    }
+
+                    if (component is Animator animator && animator.runtimeAnimatorController != null)
+                    {
+                        var ctrl = animator.runtimeAnimatorController;
+                        if (AssetDatabase.Contains(ctrl))
+                        {
+                            string ctrlPath = AssetDatabase.GetAssetPath(ctrl);
+                            if (!string.IsNullOrEmpty(ctrlPath) && ctrlPath.StartsWith("Assets/"))
+                                usedAssetPaths.Add(ctrlPath);
+                        }
+                    }
+
+                    // ── Generic walk for all other serialized Object references ──
                     var so = new SerializedObject(component);
                     var prop = so.GetIterator();
 
@@ -540,6 +585,59 @@ namespace NamPhuThuy.AssetPipelineTools
                         if (!string.IsNullOrEmpty(refPath) && refPath.StartsWith("Assets/"))
                         {
                             usedAssetPaths.Add(refPath);
+                        }
+                    }
+                }
+
+                // ── Deep-scan Materials for their textures ──
+                // AssetDatabase.GetDependencies sometimes misses textures in custom shaders, so we explicitly scan materials.
+                var materialPaths = usedAssetPaths
+                    .Where(p => p.EndsWith(".mat", System.StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                foreach (string matPath in materialPaths)
+                {
+                    var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
+                    if (mat == null) continue;
+
+                    // Method 1: GetTexturePropertyNameIDs
+                    int[] texPropIds = mat.GetTexturePropertyNameIDs();
+                    foreach (int propId in texPropIds)
+                    {
+                        Texture tex = mat.GetTexture(propId);
+                        if (tex != null)
+                        {
+                            string texPath = AssetDatabase.GetAssetPath(tex);
+                            if (!string.IsNullOrEmpty(texPath) && texPath.StartsWith("Assets/"))
+                                usedAssetPaths.Add(texPath);
+                        }
+                    }
+
+                    // Method 2: SerializedObject walk on the Material itself
+                    var matSO = new SerializedObject(mat);
+                    var matProp = matSO.GetIterator();
+                    while (matProp.NextVisible(true))
+                    {
+                        if (matProp.propertyType == SerializedPropertyType.ObjectReference && matProp.objectReferenceValue != null)
+                        {
+                            string matRefPath = AssetDatabase.GetAssetPath(matProp.objectReferenceValue);
+                            if (!string.IsNullOrEmpty(matRefPath) && matRefPath.StartsWith("Assets/"))
+                                usedAssetPaths.Add(matRefPath);
+                        }
+                    }
+                }
+
+                // ── Deep-scan: resolve dependencies for all discovered assets ──
+                // This covers AnimatorControllers→Clips, Prefabs→Meshes, ScriptableObjects, etc.
+                var discoveredPaths = usedAssetPaths.ToList();
+                foreach (string assetPath in discoveredPaths)
+                {
+                    string[] deps = AssetDatabase.GetDependencies(assetPath, true);
+                    foreach (string dep in deps)
+                    {
+                        if (dep != assetPath && dep.StartsWith("Assets/"))
+                        {
+                            usedAssetPaths.Add(dep);
                         }
                     }
                 }

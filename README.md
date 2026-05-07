@@ -1,12 +1,65 @@
-# UP-AssetPipeline-OptimizeTools
 
-## Window_AssetNaming
-old: EditorGUILayout.TextField(record.targetAsset.name, GUILayout.Width(80));
-new: EditorGUILayout.TextField(GetAssetFileName(record.targetAsset), GUILayout.Width(80));
+A collection of Unity Editor tools for managing project assets efficiently.  
+Access all tools via the **NamPhuThuy → Assets Pipeline** menu.
 
-old: main = asset.name;
-new: main = GetAssetFileName(asset);
+---
 
+# Window_AssetNaming
 
-old: if (string.IsNullOrEmpty(newName) || record.targetAsset.name == newName)
-new: if (string.IsNullOrEmpty(newName) || GetAssetFileName(record.targetAsset) == newName)
+**Menu:** `NamPhuThuy → Assets Pipeline → Window - Asset Naming`
+
+Batch asset renaming tool with a template-based naming system.
+
+## Features
+
+### Global Naming Template
+- Build a naming rule from **Prefixes** + **Main Name** + **Suffixes**, each with configurable connect characters (`_`, `-`, `.`, space, or custom).
+- Apply the template to all target assets at once.
+
+### Target Assets
+- Add assets via **drag & drop**, **Add Selected**, or by selecting in the Project window.
+- Each asset can have its own inline rule override or inherit from the global template.
+- Live preview of the final name for each asset.
+
+### Batch Operations
+| Operation | Description |
+|---|---|
+| **Clear Whitespace** | Strips all whitespace from asset names. |
+| **Remove Substring** | Removes a specific substring. Supports **count** (0 = all) and **direction** (L-to-R or R-to-L). |
+| **Replace Connect Char** | Replaces one separator character with another across all names. |
+| **Change Case** | Converts names to **UPPER**, **lower**, **Title Case**, **camelCase**, **PascalCase**, or **snake_case**. |
+| **Rename All** | Applies each asset's naming rule to produce the final name. |
+
+### Undo / Redo
+- All rename operations are tracked in a self-managed history stack.
+- Use the **↩ Undo** / **Redo ↪** buttons in the tool window to reverse or re-apply any batch rename.
+
+---
+
+# Window_AssetRefLooking
+
+**Menu:** `NamPhuThuy → Assets Pipeline → Window - Asset Ref Looking`
+
+Find all references to/from project assets and scene GameObjects.
+
+## Features
+- **Project Assets:** scans the entire project to find which assets reference the target.
+- **Scene GameObjects:** inspects all components (including children) to list every project asset they use.
+- **Filtering:** filter results by text search and asset type (Prefab, Material, Texture, Shader, Script, etc.).
+- **Move to Folder:** batch-move all filtered results into a target folder with collision handling.
+- Add targets via drag & drop from either Project or Hierarchy.
+
+---
+
+# Window_MaterialPropsExecute
+
+**Menu:** `NamPhuThuy → Assets Pipeline → Window - Material Properties Execute`
+
+Copy or swap shader properties between two lists of materials.
+
+## Features
+- **Copy A → B / B → A:** copies all shader properties (including the shader itself) from one list to another.
+- **Swap A ↔ B:** swaps properties between paired materials.
+- Uses buffered copies internally to avoid cross-overwriting issues.
+- Full Unity Undo support.
+- Both lists must have the same number of materials.

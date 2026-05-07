@@ -10,7 +10,7 @@ using UnityEditor.UIElements;
 namespace NamPhuThuy.AssetPipelineTools
 {
 #if UNITY_EDITOR
-    public class Window_AssetNaming_UIToolkit : EditorWindow
+    public class Window_AssetNaming_UITK : EditorWindow
     {
         // ── Persisted State ──────────────────────────────────────────────
         [SerializeField] private NamingRule _globalRule = new NamingRule();
@@ -21,6 +21,15 @@ namespace NamPhuThuy.AssetPipelineTools
         private string _replaceFromCustom = "";
         private int _replaceToIndex = 2;
         private string _replaceToCustom = "";
+
+        // Clear substring state
+        private string _clearSubstring = "";
+        private int _clearCount = 0;       // 0 = All occurrences
+        private bool _clearFromRight = false;
+
+        // Self-managed undo/redo stacks for file renames
+        [System.NonSerialized] private List<RenameHistoryBatch> _undoStack = new List<RenameHistoryBatch>();
+        [System.NonSerialized] private List<RenameHistoryBatch> _redoStack = new List<RenameHistoryBatch>();
 
         // ── Static Data ──────────────────────────────────────────────────
         private static readonly string[] PartOptions   = { "", "URP", "BIRP", "SRP", "red", "green", "magenta", "cyan", "Custom" };
@@ -41,10 +50,10 @@ namespace NamPhuThuy.AssetPipelineTools
         private TextField _replaceToCustomField;
 
         // ─────────────────────────────────────────────────────────────────
-        [MenuItem("NamPhuThuy/Assets Pipeline/Window_UIToolkit - Asset Naming")]
+        [MenuItem("NamPhuThuy/Assets Pipeline/Window UITK - Asset Naming")]
         public static void ShowWindow()
         {
-            var window = GetWindow<Window_AssetNaming>("Asset Naming");
+            var window = GetWindow<Window_AssetNaming_UITK>("Asset Naming (UITK)");
             window.minSize = new Vector2(960, 640);
             window.Show();
         }
@@ -92,10 +101,29 @@ namespace NamPhuThuy.AssetPipelineTools
             // ── Target Assets Section ──
             mainScroll.Add(BuildTargetAssetsSection());
 
-            // ── Rename All Button ──
+            // ── Bottom Action Bar ──
+            var actionBar = new VisualElement();
+            actionBar.style.flexDirection = FlexDirection.Row;
+            actionBar.style.marginTop = 6;
+
             var renameBtn = new Button(OnRenameAll) { text = "Rename All Assets" };
             renameBtn.AddToClassList("rename-all-btn");
-            root.Add(renameBtn);
+            renameBtn.style.flexGrow = 1;
+            actionBar.Add(renameBtn);
+
+            var undoBtn = new Button(UndoLastRename) { text = "↩ Undo" };
+            undoBtn.style.width = 80;
+            undoBtn.style.height = 36;
+            undoBtn.style.marginLeft = 8;
+            actionBar.Add(undoBtn);
+
+            var redoBtn = new Button(RedoLastRename) { text = "Redo ↪" };
+            redoBtn.style.width = 80;
+            redoBtn.style.height = 36;
+            redoBtn.style.marginLeft = 4;
+            actionBar.Add(redoBtn);
+
+            root.Add(actionBar);
 
             RefreshRecordList();
         }
@@ -164,6 +192,12 @@ namespace NamPhuThuy.AssetPipelineTools
 
             // ── Replace connect-char row ──
             box.Add(BuildReplaceCharRow());
+
+            // ── Clear substring row ──
+            box.Add(BuildClearSubstringRow());
+
+            // ── Change case row ──
+            box.Add(BuildChangeCaseRow());
 
             // ── Records scroll ──
             var recordScroll = new ScrollView(ScrollViewMode.Vertical);
@@ -253,7 +287,68 @@ namespace NamPhuThuy.AssetPipelineTools
             return row;
         }
 
+        private VisualElement BuildClearSubstringRow()
+        {
+            var row = new VisualElement();
+            row.AddToClassList("replace-row");
+
+            row.Add(new Label("Remove") { style = { unityFontStyleAndWeight = FontStyle.Bold } });
+
+            var substringField = new TextField { value = _clearSubstring };
+            substringField.style.width = 150;
+            substringField.RegisterValueChangedCallback(e => _clearSubstring = e.newValue);
+            row.Add(substringField);
+
+            row.Add(new Label("Count"));
+            var countField = new IntegerField { value = _clearCount };
+            countField.style.width = 35;
+            countField.RegisterValueChangedCallback(e => _clearCount = e.newValue);
+            row.Add(countField);
+
+            var allLabel = new Label(_clearCount == 0 ? "(All)" : "");
+            allLabel.style.width = 30;
+            countField.RegisterValueChangedCallback(e => allLabel.text = e.newValue == 0 ? "(All)" : "");
+            row.Add(allLabel);
+
+            var dirToggle = new Button();
+            dirToggle.text = _clearFromRight ? "← R-to-L" : "L-to-R →";
+            dirToggle.name = "dir-toggle";
+            dirToggle.style.width = 70;
+            dirToggle.clicked += () =>
+            {
+                _clearFromRight = !_clearFromRight;
+                dirToggle.text = _clearFromRight ? "← R-to-L" : "L-to-R →";
+            };
+            row.Add(dirToggle);
+
+            var clearBtn = new Button(OnClearSubstring) { text = "Clear Substring" };
+            clearBtn.AddToClassList("toolbar-btn");
+            row.Add(clearBtn);
+
+            return row;
+        }
+
+        private VisualElement BuildChangeCaseRow()
+        {
+            var row = new VisualElement();
+            row.AddToClassList("replace-row");
+
+            row.Add(new Label("Case") { style = { unityFontStyleAndWeight = FontStyle.Bold } });
+
+            string[] labels = { "UPPER", "lower", "Title Case", "camelCase", "PascalCase", "snake_case" };
+            for (int i = 0; i < labels.Length; i++)
+            {
+                int mode = i;
+                var btn = new Button(() => OnChangeCaseAll(mode)) { text = labels[mode] };
+                btn.style.width = labels[mode].Length > 6 ? 80 : 60;
+                row.Add(btn);
+            }
+
+            return row;
+        }
+
         // ═════════════════════════════════════════════════════════════════
+
         // RULE EDITOR UI
         // ═════════════════════════════════════════════════════════════════
 
@@ -542,7 +637,7 @@ namespace NamPhuThuy.AssetPipelineTools
         }
 
         // ═════════════════════════════════════════════════════════════════
-        // LOGIC (unchanged from original)
+        // LOGIC
         // ═════════════════════════════════════════════════════════════════
 
         private void OnAddSelected()
@@ -576,25 +671,15 @@ namespace NamPhuThuy.AssetPipelineTools
             var valid = _records.Where(r => r.targetAsset != null).ToList();
             if (valid.Count == 0) return;
 
-            Undo.IncrementCurrentGroup();
-            int group = Undo.GetCurrentGroup();
-            int count = 0;
-
+            var renamePairs = new List<(Object asset, string newName)>();
             foreach (var record in valid)
             {
-                string original = record.targetAsset.name;
+                string original = GetAssetFileName(record.targetAsset);
                 if (!original.Contains(fromChar)) continue;
-                string newName = original.Replace(fromChar, toChar ?? "");
-                string path = AssetDatabase.GetAssetPath(record.targetAsset);
-                if (string.IsNullOrEmpty(path)) continue;
-                Undo.RecordObject(record.targetAsset, "Replace Connect Char");
-                string result = AssetDatabase.RenameAsset(path, newName);
-                if (string.IsNullOrEmpty(result)) count++;
-                else Debug.LogWarning($"Failed to rename {path}: {result}");
+                renamePairs.Add((record.targetAsset, original.Replace(fromChar, toChar ?? "")));
             }
 
-            AssetDatabase.SaveAssets();
-            Undo.CollapseUndoOperations(group);
+            int count = PerformBatchRename("Replace Connect Char", renamePairs);
             Debug.Log($"Replace Connect Char Complete! Updated {count} asset(s). ('{fromChar}' → '{toChar}')");
             RefreshRecordList();
         }
@@ -604,59 +689,186 @@ namespace NamPhuThuy.AssetPipelineTools
             var valid = _records.Where(r => r.targetAsset != null).ToList();
             if (valid.Count == 0) return;
 
-            Undo.IncrementCurrentGroup();
-            int group = Undo.GetCurrentGroup();
-            int count = 0;
-
+            var renamePairs = new List<(Object asset, string newName)>();
             foreach (var record in valid)
             {
-                string original = record.targetAsset.name;
+                string original = GetAssetFileName(record.targetAsset);
                 string cleaned = System.Text.RegularExpressions.Regex.Replace(original, @"\s+", "");
-                if (original == cleaned) continue;
-                string path = AssetDatabase.GetAssetPath(record.targetAsset);
-                if (string.IsNullOrEmpty(path)) continue;
-                Undo.RecordObject(record.targetAsset, "Clear Whitespace");
-                string result = AssetDatabase.RenameAsset(path, cleaned);
-                if (string.IsNullOrEmpty(result)) count++;
-                else Debug.LogWarning($"Failed to clear whitespace for {path}: {result}");
+                if (original != cleaned)
+                    renamePairs.Add((record.targetAsset, cleaned));
             }
 
-            AssetDatabase.SaveAssets();
-            Undo.CollapseUndoOperations(group);
+            int count = PerformBatchRename("Clear Whitespace", renamePairs);
             Debug.Log($"Clear Whitespace Complete! Cleaned {count} asset(s).");
+            RefreshRecordList();
+        }
+
+        private void OnClearSubstring()
+        {
+            if (string.IsNullOrEmpty(_clearSubstring))
+            {
+                Debug.LogWarning("Clear Substring: Nothing to clear — the field is empty.");
+                return;
+            }
+
+            var valid = _records.Where(r => r.targetAsset != null).ToList();
+            if (valid.Count == 0) return;
+
+            int removeCount = Mathf.Max(0, _clearCount);
+
+            var renamePairs = new List<(Object asset, string newName)>();
+            foreach (var record in valid)
+            {
+                string original = GetAssetFileName(record.targetAsset);
+                if (!original.Contains(_clearSubstring)) continue;
+
+                string cleaned = RemoveSubstringOccurrences(original, _clearSubstring, removeCount, _clearFromRight);
+                if (original == cleaned) continue;
+                if (string.IsNullOrEmpty(cleaned))
+                {
+                    Debug.LogWarning($"Skipping {original}: removing '{_clearSubstring}' would leave an empty name.");
+                    continue;
+                }
+                renamePairs.Add((record.targetAsset, cleaned));
+            }
+
+            int count = PerformBatchRename("Clear Substring", renamePairs);
+            string dirLabel = _clearFromRight ? "R-to-L" : "L-to-R";
+            string countLabel = removeCount == 0 ? "all" : removeCount.ToString();
+            Debug.Log($"Clear Substring Complete! Removed '{_clearSubstring}' ({countLabel}, {dirLabel}) from {count} asset(s).");
+            RefreshRecordList();
+        }
+
+        private void OnChangeCaseAll(int mode)
+        {
+            var valid = _records.Where(r => r.targetAsset != null).ToList();
+            if (valid.Count == 0) return;
+
+            string[] modeNames = { "UPPERCASE", "lowercase", "Title Case", "camelCase", "PascalCase", "snake_case" };
+
+            var renamePairs = new List<(Object asset, string newName)>();
+            foreach (var record in valid)
+            {
+                string original = GetAssetFileName(record.targetAsset);
+                string newName;
+                switch (mode)
+                {
+                    case 0: newName = original.ToUpperInvariant(); break;
+                    case 1: newName = original.ToLowerInvariant(); break;
+                    case 2: newName = ToTitleCase(original); break;
+                    case 3: newName = ToCamelCase(original); break;
+                    case 4: newName = ToPascalCase(original); break;
+                    case 5: newName = ToSnakeCase(original); break;
+                    default: continue;
+                }
+                if (original != newName)
+                    renamePairs.Add((record.targetAsset, newName));
+            }
+
+            int renamed = PerformBatchRename($"Change Case - {modeNames[mode]}", renamePairs);
+            Debug.Log($"Change Case Complete! Converted {renamed} asset(s) to {modeNames[mode]}.");
             RefreshRecordList();
         }
 
         private void OnRenameAll()
         {
-            Undo.IncrementCurrentGroup();
-            int group = Undo.GetCurrentGroup();
-            int renamed = 0, skipped = 0;
-
+            int skipped = 0;
+            var renamePairs = new List<(Object asset, string newName)>();
             foreach (var record in _records)
             {
-                if (record.targetAsset == null) { Debug.LogError("record.targetAsset is null"); continue; }
-
+                if (record.targetAsset == null) continue;
                 string newName = GetPreviewName(record.rule, record.targetAsset);
                 if (string.IsNullOrEmpty(newName) || GetAssetFileName(record.targetAsset) == newName)
                 { skipped++; continue; }
-
-                string path = AssetDatabase.GetAssetPath(record.targetAsset);
-                if (string.IsNullOrEmpty(path)) continue;
-
-                Undo.RecordObject(record.targetAsset, "Rename Asset");
-                string result = AssetDatabase.RenameAsset(path, newName);
-                if (string.IsNullOrEmpty(result)) renamed++;
-                else Debug.LogWarning($"Failed to rename {path}: {result}");
+                renamePairs.Add((record.targetAsset, newName));
             }
 
-            AssetDatabase.SaveAssets();
-            Undo.CollapseUndoOperations(group);
-
+            int renamed = PerformBatchRename("Rename All", renamePairs);
             Debug.Log(renamed == 0 && skipped > 0
                 ? $"Batch Renaming: No assets renamed. {skipped} skipped."
                 : $"Batch Renaming Complete! Renamed {renamed}, skipped {skipped}.");
+            RefreshRecordList();
+        }
 
+        // ═════════════════════════════════════════════════════════════════
+        // BATCH RENAME + UNDO/REDO
+        // ═════════════════════════════════════════════════════════════════
+
+        private int PerformBatchRename(string operationName, List<(Object asset, string newName)> renamePairs)
+        {
+            if (renamePairs.Count == 0) return 0;
+
+            var batch = new RenameHistoryBatch { operationName = operationName };
+            int successCount = 0;
+
+            foreach (var (asset, newName) in renamePairs)
+            {
+                string assetPath = AssetDatabase.GetAssetPath(asset);
+                if (string.IsNullOrEmpty(assetPath)) continue;
+
+                string oldName = GetAssetFileName(asset);
+                string guid = AssetDatabase.AssetPathToGUID(assetPath);
+                string result = AssetDatabase.RenameAsset(assetPath, newName);
+
+                if (string.IsNullOrEmpty(result))
+                {
+                    batch.entries.Add(new RenameHistoryEntry { assetGuid = guid, oldName = oldName, newName = newName });
+                    successCount++;
+                }
+                else
+                {
+                    Debug.LogWarning($"[{operationName}] Failed to rename {assetPath}: {result}");
+                }
+            }
+
+            if (batch.entries.Count > 0)
+            {
+                _undoStack.Add(batch);
+                _redoStack.Clear();
+            }
+
+            AssetDatabase.SaveAssets();
+            return successCount;
+        }
+
+        private void UndoLastRename()
+        {
+            if (_undoStack.Count == 0) { Debug.LogWarning("Nothing to undo."); return; }
+
+            var batch = _undoStack[_undoStack.Count - 1];
+            _undoStack.RemoveAt(_undoStack.Count - 1);
+
+            for (int i = batch.entries.Count - 1; i >= 0; i--)
+            {
+                var entry = batch.entries[i];
+                string path = AssetDatabase.GUIDToAssetPath(entry.assetGuid);
+                if (!string.IsNullOrEmpty(path))
+                    AssetDatabase.RenameAsset(path, entry.oldName);
+            }
+
+            _redoStack.Add(batch);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"Undo: Reverted '{batch.operationName}' ({batch.entries.Count} asset(s))");
+            RefreshRecordList();
+        }
+
+        private void RedoLastRename()
+        {
+            if (_redoStack.Count == 0) { Debug.LogWarning("Nothing to redo."); return; }
+
+            var batch = _redoStack[_redoStack.Count - 1];
+            _redoStack.RemoveAt(_redoStack.Count - 1);
+
+            foreach (var entry in batch.entries)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(entry.assetGuid);
+                if (!string.IsNullOrEmpty(path))
+                    AssetDatabase.RenameAsset(path, entry.newName);
+            }
+
+            _undoStack.Add(batch);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"Redo: Re-applied '{batch.operationName}' ({batch.entries.Count} asset(s))");
             RefreshRecordList();
         }
 
@@ -694,6 +906,107 @@ namespace NamPhuThuy.AssetPipelineTools
             return string.IsNullOrEmpty(path)
                 ? asset.name
                 : System.IO.Path.GetFileNameWithoutExtension(path);
+        }
+
+        // ── Case Conversion Helpers ──
+
+        private static List<string> SplitIntoWords(string input)
+        {
+            var words = new List<string>();
+            if (string.IsNullOrEmpty(input)) return words;
+
+            char[] separators = { '_', '-', '.', ' ' };
+            var rawParts = input.Split(separators, System.StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var part in rawParts)
+            {
+                int start = 0;
+                for (int i = 1; i < part.Length; i++)
+                {
+                    if (char.IsUpper(part[i]) && !char.IsUpper(part[i - 1]))
+                    {
+                        words.Add(part.Substring(start, i - start));
+                        start = i;
+                    }
+                    else if (char.IsUpper(part[i]) && i + 1 < part.Length && char.IsUpper(part[i - 1]) && !char.IsUpper(part[i + 1]))
+                    {
+                        words.Add(part.Substring(start, i - start));
+                        start = i;
+                    }
+                }
+                words.Add(part.Substring(start));
+            }
+            return words;
+        }
+
+        private static string ToTitleCase(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return input;
+            char[] separators = { '_', '-', '.', ' ' };
+            var chars = input.ToCharArray();
+            bool capitalizeNext = true;
+            for (int i = 0; i < chars.Length; i++)
+            {
+                if (System.Array.IndexOf(separators, chars[i]) >= 0) capitalizeNext = true;
+                else if (capitalizeNext) { chars[i] = char.ToUpperInvariant(chars[i]); capitalizeNext = false; }
+                else chars[i] = char.ToLowerInvariant(chars[i]);
+            }
+            return new string(chars);
+        }
+
+        private static string ToCamelCase(string input)
+        {
+            var words = SplitIntoWords(input);
+            if (words.Count == 0) return input;
+            for (int i = 0; i < words.Count; i++)
+                words[i] = i == 0 ? words[i].ToLowerInvariant()
+                    : char.ToUpperInvariant(words[i][0]) + words[i].Substring(1).ToLowerInvariant();
+            return string.Concat(words);
+        }
+
+        private static string ToPascalCase(string input)
+        {
+            var words = SplitIntoWords(input);
+            if (words.Count == 0) return input;
+            for (int i = 0; i < words.Count; i++)
+                words[i] = char.ToUpperInvariant(words[i][0]) + words[i].Substring(1).ToLowerInvariant();
+            return string.Concat(words);
+        }
+
+        private static string ToSnakeCase(string input)
+        {
+            var words = SplitIntoWords(input);
+            if (words.Count == 0) return input;
+            for (int i = 0; i < words.Count; i++) words[i] = words[i].ToLowerInvariant();
+            return string.Join("_", words);
+        }
+
+        // ── Substring Removal Helper ──
+
+        private static string RemoveSubstringOccurrences(string source, string sub, int count, bool fromRight)
+        {
+            if (string.IsNullOrEmpty(sub)) return source;
+
+            var indices = new List<int>();
+            int searchStart = 0;
+            while (searchStart <= source.Length - sub.Length)
+            {
+                int idx = source.IndexOf(sub, searchStart, System.StringComparison.Ordinal);
+                if (idx < 0) break;
+                indices.Add(idx);
+                searchStart = idx + sub.Length;
+            }
+            if (indices.Count == 0) return source;
+
+            List<int> toRemove;
+            if (count == 0 || count >= indices.Count) toRemove = indices;
+            else if (fromRight) toRemove = indices.Skip(indices.Count - count).ToList();
+            else toRemove = indices.Take(count).ToList();
+
+            var result = source;
+            for (int i = toRemove.Count - 1; i >= 0; i--)
+                result = result.Remove(toRemove[i], sub.Length);
+            return result;
         }
 
         // ═════════════════════════════════════════════════════════════════
