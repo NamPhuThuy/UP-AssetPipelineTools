@@ -769,5 +769,38 @@ namespace NamPhuThuy.AssetPipelineTools
         }
         #endregion
     }
+    
+    [System.Flags]
+    public enum AssetTypeFilter
+    {
+        Prefab          = 1 << 0,
+        Scene           = 1 << 1,
+        Material        = 1 << 2,
+        ScriptableObject = 1 << 3,
+        Script          = 1 << 4,
+        Shader          = 1 << 5,
+        Texture         = 1 << 6,
+        Model3D         = 1 << 7,
+        Animation       = 1 << 8,
+
+        All = Prefab | Scene | Material | ScriptableObject | Script | Shader | Texture | Model3D | Animation
+    }
+
+    [System.Serializable]
+    public class ReferenceContext
+    {
+        public string assetPath;
+        public string contextInfo;
+    }
+
+    [System.Serializable]
+    public class RefLookingEntry
+    {
+        public Object targetAsset;
+        public bool isSceneObject;
+        public bool foldout = true;
+        public List<string> referencePaths = new List<string>();
+        public List<ReferenceContext> referenceContexts = new List<ReferenceContext>();
+    }
 #endif
 }

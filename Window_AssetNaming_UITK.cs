@@ -1022,5 +1022,73 @@ namespace NamPhuThuy.AssetPipelineTools
             root.style.flexDirection = FlexDirection.Column;
         }
     }
+    
+    [System.Serializable]
+    public class NamePart
+    {
+        public string value = "";
+        public int valueIndex = 0;
+        
+        public string connectChar = "_";
+        public int connectIndex = 1; // Default to "_"
+
+        public NamePart Clone()
+        {
+            return new NamePart {
+                value = this.value,
+                valueIndex = this.valueIndex,
+                connectChar = this.connectChar,
+                connectIndex = this.connectIndex
+            };
+        }
+    }
+
+    [System.Serializable]
+    public class NamingRule
+    {
+        public List<NamePart> prefixes = new List<NamePart>();
+        
+        public int mainNameIndex = 1; // Default to Original Name
+        public string mainName = "";
+        
+        public int mainConnectIndex = 1; // Default to "_"
+        public string mainConnectChar = "_";
+        
+        public List<NamePart> suffixes = new List<NamePart>();
+
+        public NamingRule Clone()
+        {
+            var clone = new NamingRule();
+            clone.prefixes = this.prefixes.Select(p => p.Clone()).ToList();
+            clone.suffixes = this.suffixes.Select(s => s.Clone()).ToList();
+            clone.mainNameIndex = this.mainNameIndex;
+            clone.mainName = this.mainName;
+            clone.mainConnectIndex = this.mainConnectIndex;
+            clone.mainConnectChar = this.mainConnectChar;
+            return clone;
+        }
+    }
+
+    [System.Serializable]
+    public class RenameRecord
+    {
+        public Object targetAsset;
+        public NamingRule rule = new NamingRule();
+    }
+
+    [System.Serializable]
+    public class RenameHistoryEntry
+    {
+        public string assetGuid;
+        public string oldName;
+        public string newName;
+    }
+
+    [System.Serializable]
+    public class RenameHistoryBatch
+    {
+        public string operationName;
+        public List<RenameHistoryEntry> entries = new List<RenameHistoryEntry>();
+    }
 #endif
 }
