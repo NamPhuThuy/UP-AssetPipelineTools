@@ -305,7 +305,9 @@ namespace NamPhuThuy.AssetPipelineTools
                         alignItems = Align.Center, 
                         paddingBottom = 4,
                         borderBottomWidth = 1,
-                        borderBottomColor = new Color(0.18f, 0.18f, 0.18f, 0.5f)
+                        borderBottomColor = new Color(0.18f, 0.18f, 0.18f, 0.5f),
+                        flexShrink = 0,
+                        minHeight = 24
                     } 
                 };
 
@@ -314,7 +316,7 @@ namespace NamPhuThuy.AssetPipelineTools
                     value = tex, 
                     objectType = typeof(Texture2D), 
                     allowSceneObjects = false,
-                    style = { flexGrow = 1 }
+                    style = { flexGrow = 1, flexShrink = 1 }
                 };
                 
                 objField.RegisterValueChangedCallback(evt => 
@@ -340,7 +342,7 @@ namespace NamPhuThuy.AssetPipelineTools
                 }) 
                 { 
                     text = "👁 Preview", 
-                    style = { height = 20, fontSize = 10, marginLeft = 4 } 
+                    style = { height = 20, fontSize = 10, marginLeft = 4, flexShrink = 0 } 
                 };
                 row.Add(previewBtn);
 
@@ -357,7 +359,7 @@ namespace NamPhuThuy.AssetPipelineTools
                 }) 
                 { 
                     text = "✕", 
-                    style = { width = 24, height = 20, unityFontStyleAndWeight = FontStyle.Bold, backgroundColor = new Color(0.5f, 0.15f, 0.15f) } 
+                    style = { width = 24, height = 20, unityFontStyleAndWeight = FontStyle.Bold, backgroundColor = new Color(0.5f, 0.15f, 0.15f), flexShrink = 0 } 
                 };
                 row.Add(removeBtn);
 
