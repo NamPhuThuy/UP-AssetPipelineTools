@@ -805,15 +805,14 @@ namespace NamPhuThuy.AssetPipelineTools
                 string guid = AssetDatabase.AssetPathToGUID(assetPath);
                 string result = AssetDatabase.RenameAsset(assetPath, newName);
 
-                if (string.IsNullOrEmpty(result))
-                {
-                    batch.entries.Add(new RenameHistoryEntry { assetGuid = guid, oldName = oldName, newName = newName });
-                    successCount++;
-                }
-                else
+                if (!string.IsNullOrEmpty(result))
                 {
                     Debug.LogWarning($"[{operationName}] Failed to rename {assetPath}: {result}");
+                    continue;
                 }
+
+                batch.entries.Add(new RenameHistoryEntry { assetGuid = guid, oldName = oldName, newName = newName });
+                successCount++;
             }
 
             if (batch.entries.Count > 0)
@@ -993,10 +992,11 @@ namespace NamPhuThuy.AssetPipelineTools
             }
             if (indices.Count == 0) return source;
 
-            List<int> toRemove;
-            if (count == 0 || count >= indices.Count) toRemove = indices;
-            else if (fromRight) toRemove = indices.Skip(indices.Count - count).ToList();
-            else toRemove = indices.Take(count).ToList();
+            List<int> toRemove = indices;
+            if (count > 0 && count < indices.Count)
+            {
+                toRemove = fromRight ? indices.Skip(indices.Count - count).ToList() : indices.Take(count).ToList();
+            }
 
             var result = source;
             for (int i = toRemove.Count - 1; i >= 0; i--)

@@ -670,17 +670,15 @@ namespace NamPhuThuy.AssetPipelineTools
                     }
 
                     string error = AssetDatabase.MoveAsset(sourcePath, destPath);
-
-                    if (string.IsNullOrEmpty(error))
-                    {
-                        movedCount++;
-                        pathMapping[sourcePath] = destPath;
-                    }
-                    else
+                    if (!string.IsNullOrEmpty(error))
                     {
                         failedCount++;
                         Debug.LogWarning($"Failed to move {sourcePath} → {destPath}: {error}");
+                        continue;
                     }
+
+                    movedCount++;
+                    pathMapping[sourcePath] = destPath;
                 }
 
                 AssetDatabase.SaveAssets();
@@ -716,12 +714,12 @@ namespace NamPhuThuy.AssetPipelineTools
         #region Helpers
         private List<string> GetFilteredPaths(List<string> paths)
         {
+            if (_filterTypeMask == 0) return new List<string>();
+
             IEnumerable<string> result = paths;
 
-            if (_filterTypeMask != AssetTypeFilter.All && _filterTypeMask != 0)
+            if (_filterTypeMask != AssetTypeFilter.All)
                 result = result.Where(p => MatchesTypeMask(p, _filterTypeMask));
-            else if (_filterTypeMask == 0)
-                return new List<string>();
 
             if (!string.IsNullOrEmpty(_filterText))
             {

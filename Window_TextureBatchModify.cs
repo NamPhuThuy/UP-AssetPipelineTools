@@ -172,20 +172,19 @@ namespace NamPhuThuy.AssetPipelineTools
 
                 if (_autoOptionsRow != null) _autoOptionsRow.style.display = DisplayStyle.Flex;
                 if (_manualOptionsRow != null) _manualOptionsRow.style.display = DisplayStyle.None;
+                return;
             }
-            else
-            {
-                _btnAutoModeRef.style.backgroundColor = inactiveColor;
-                _btnAutoModeRef.style.color = Color.white;
-                _btnManualModeRef.style.backgroundColor = activeColor;
-                _btnManualModeRef.style.color = Color.black;
 
-                _actionBtn.text = "Rotate";
-                _actionBtn.style.backgroundColor = new Color(0.1f, 0.5f, 0.8f);
+            _btnAutoModeRef.style.backgroundColor = inactiveColor;
+            _btnAutoModeRef.style.color = Color.white;
+            _btnManualModeRef.style.backgroundColor = activeColor;
+            _btnManualModeRef.style.color = Color.black;
 
-                if (_autoOptionsRow != null) _autoOptionsRow.style.display = DisplayStyle.None;
-                if (_manualOptionsRow != null) _manualOptionsRow.style.display = DisplayStyle.Flex;
-            }
+            _actionBtn.text = "Rotate";
+            _actionBtn.style.backgroundColor = new Color(0.1f, 0.5f, 0.8f);
+
+            if (_autoOptionsRow != null) _autoOptionsRow.style.display = DisplayStyle.None;
+            if (_manualOptionsRow != null) _manualOptionsRow.style.display = DisplayStyle.Flex;
         }
         #endregion
 
@@ -529,25 +528,21 @@ namespace NamPhuThuy.AssetPipelineTools
 
                     AnalyzeOrientation(readableTex, out float centerX, out float centerY, out float theta);
                     float currentAngleDeg = theta * Mathf.Rad2Deg;
+                    float angleDeg = theta * Mathf.Rad2Deg;
 
                     float finalRotDeg = 0f;
+                    bool shouldSkip = false;
+                    string skipReason = "";
+
                     if (_currentMode == OperationMode.AutoAlign)
                     {
-                        float rotToPositive90 = NormalizeAngle(90f - currentAngleDeg);
-                        float rotToNegative90 = NormalizeAngle(-90f - currentAngleDeg);
+                        float rotToPositive90 = NormalizeAngle(90f - angleDeg);
+                        float rotToNegative90 = NormalizeAngle(-90f - angleDeg);
                         finalRotDeg = (Mathf.Abs(rotToPositive90) < Mathf.Abs(rotToNegative90)) ? rotToPositive90 : rotToNegative90;
-
                         if (Mathf.Abs(finalRotDeg) < _minAngleThreshold)
                         {
-                            skippedCount++;
-                            Debug.Log($"[TextureBatchModify] Skip '{readableTex.name}': vertical");
-                            // Restore importer
-                            if (!wasReadable)
-                            {
-                                importer.isReadable = false;
-                                importer.SaveAndReimport();
-                            }
-                            continue;
+                            shouldSkip = true;
+                            skipReason = "vertical";
                         }
                     }
                     else
@@ -555,15 +550,21 @@ namespace NamPhuThuy.AssetPipelineTools
                         finalRotDeg = _manualRotationAngle;
                         if (Mathf.Abs(finalRotDeg) < 0.01f)
                         {
-                            skippedCount++;
-                            Debug.Log($"[TextureBatchModify] Skip '{readableTex.name}': angle is zero");
-                            if (!wasReadable)
-                            {
-                                importer.isReadable = false;
-                                importer.SaveAndReimport();
-                            }
-                            continue;
+                            shouldSkip = true;
+                            skipReason = "angle is zero";
                         }
+                    }
+
+                    if (shouldSkip)
+                    {
+                        skippedCount++;
+                        Debug.Log($"[TextureBatchModify] Skip '{readableTex.name}': {skipReason}");
+                        if (!wasReadable)
+                        {
+                            importer.isReadable = false;
+                            importer.SaveAndReimport();
+                        }
+                        continue;
                     }
 
                     Debug.Log($"[TextureBatchModify] Processing '{readableTex.name}': angle={finalRotDeg:F1}°");
@@ -582,33 +583,38 @@ namespace NamPhuThuy.AssetPipelineTools
                     // Rotate the texture
                     float rotationAngleRad = finalRotDeg * Mathf.Deg2Rad;
                     Texture2D rotatedTex = RotateAndCenterTexture(readableTex, rotationAngleRad, centerX, centerY);
-
-                    if (rotatedTex != null)
+                    if (rotatedTex == null)
                     {
-                        byte[] bytes;
-                        string ext = Path.GetExtension(assetPath).ToLowerInvariant();
-                        if (ext == ".jpg" || ext == ".jpeg")
+                        Debug.LogError($"[TextureBatchModify] Rotate failed: '{readableTex.name}'");
+                        AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceSynchronousImport);
+                        var postImporter = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+                        if (postImporter != null)
                         {
-                            bytes = rotatedTex.EncodeToJPG(95);
+                            postImporter.isReadable = false;
+                            postImporter.SaveAndReimport();
                         }
-                        else if (ext == ".tga")
-                        {
-                            bytes = rotatedTex.EncodeToTGA();
-                        }
-                        else
-                        {
-                            bytes = rotatedTex.EncodeToPNG(); // Default to PNG
-                        }
+                        continue;
+                    }
 
-                        File.WriteAllBytes(assetPath, bytes);
-                        DestroyImmediate(rotatedTex);
-                        processedCount++;
-                        modifiedTextures.Add(tex);
+                    byte[] bytes;
+                    string ext = Path.GetExtension(assetPath).ToLowerInvariant();
+                    if (ext == ".jpg" || ext == ".jpeg")
+                    {
+                        bytes = rotatedTex.EncodeToJPG(95);
+                    }
+                    else if (ext == ".tga")
+                    {
+                        bytes = rotatedTex.EncodeToTGA();
                     }
                     else
                     {
-                        Debug.LogError($"[TextureBatchModify] Rotate failed: '{readableTex.name}'");
+                        bytes = rotatedTex.EncodeToPNG(); // Default to PNG
                     }
+
+                    File.WriteAllBytes(assetPath, bytes);
+                    DestroyImmediate(rotatedTex);
+                    processedCount++;
+                    modifiedTextures.Add(tex);
 
                     // Restore importer settings and ensure Read/Write is unticked after modifying the texture
                     AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceSynchronousImport);
@@ -782,14 +788,13 @@ namespace NamPhuThuy.AssetPipelineTools
                     float xs = centerX + (rx * invCos - ry * invSin);
                     float ys = centerY + (rx * invSin + ry * invCos);
 
-                    if (xs >= 0 && xs < width && ys >= 0 && ys < height)
-                    {
-                        newPixels[yd * newWidth + xd] = GetBilinearSample(tex, xs, ys);
-                    }
-                    else
+                    if (xs < 0 || xs >= width || ys < 0 || ys >= height)
                     {
                         newPixels[yd * newWidth + xd] = Color.clear;
+                        continue;
                     }
+
+                    newPixels[yd * newWidth + xd] = GetBilinearSample(tex, xs, ys);
                 }
             }
 
