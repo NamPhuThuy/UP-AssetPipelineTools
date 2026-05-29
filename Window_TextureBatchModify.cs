@@ -574,8 +574,7 @@ namespace NamPhuThuy.AssetPipelineTools
                     {
                         string dir = Path.GetDirectoryName(assetPath);
                         string filename = Path.GetFileNameWithoutExtension(assetPath);
-                        string ext = Path.GetExtension(assetPath);
-                        string backupPath = $"{dir}/{filename}_Backup{ext}";
+                        string backupPath = $"{dir}/{filename}_Backup{Path.GetExtension(assetPath)}";
                         AssetDatabase.CopyAsset(assetPath, backupPath);
                         Debug.Log($"[TextureBatchModify] Backup: '{backupPath}'");
                     }
@@ -587,11 +586,11 @@ namespace NamPhuThuy.AssetPipelineTools
                     {
                         Debug.LogError($"[TextureBatchModify] Rotate failed: '{readableTex.name}'");
                         AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceSynchronousImport);
-                        var postImporter = AssetImporter.GetAtPath(assetPath) as TextureImporter;
-                        if (postImporter != null)
+                        var tempImporter = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+                        if (tempImporter != null)
                         {
-                            postImporter.isReadable = false;
-                            postImporter.SaveAndReimport();
+                            tempImporter.isReadable = false;
+                            tempImporter.SaveAndReimport();
                         }
                         continue;
                     }
