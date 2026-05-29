@@ -1,14 +1,12 @@
+#if UNITY_EDITOR
 using UnityEngine;
 using UnityEngine.UIElements;
 using System.Collections.Generic;
-#if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.UIElements;
-#endif
 
 namespace NamPhuThuy.AssetPipelineTools
 {
-#if UNITY_EDITOR
     public class Window_ComponentSetup : EditorWindow
     {
         #region Private Fields
@@ -20,7 +18,7 @@ namespace NamPhuThuy.AssetPipelineTools
         #endregion
 
         #region Menu Item
-        [MenuItem("NamPhuThuy/Assets Pipeline/Window UITK - Component Setup")]
+        [MenuItem("NamPhuThuy/Assets Pipeline/Window - Component Setup")]
         public static void ShowWindow()
         {
             var window = GetWindow<Window_ComponentSetup>("Component Setup");
@@ -427,5 +425,5 @@ namespace NamPhuThuy.AssetPipelineTools
         }
         #endregion
     }
-#endif
 }
+#endif

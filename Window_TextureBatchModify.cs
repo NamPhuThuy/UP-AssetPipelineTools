@@ -1,22 +1,24 @@
+#if UNITY_EDITOR
 using UnityEngine;
 using UnityEngine.UIElements;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
-#if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.UIElements;
-#endif
 
 namespace NamPhuThuy.AssetPipelineTools
 {
-#if UNITY_EDITOR
-    public class Window_TextureAligner : EditorWindow
+    public class Window_TextureBatchModify : EditorWindow
     {
+        private enum OperationMode { AutoAlign, ManualRotate }
+
         #region Private Fields
         [SerializeField] private List<Texture2D> _texturesToProcess = new List<Texture2D>();
-        [SerializeField] private float _minAngleThreshold = 2.0f; // Only rotate if diagonal angle is greater than this
+        [SerializeField] private float _minAngleThreshold = 2.0f; // Only auto-rotate if diagonal angle is greater than this
+        [SerializeField] private float _manualRotationAngle = 90.0f; // Custom rotation angle in degrees
         [SerializeField] private bool _autoBackup = false;
+        [SerializeField] private OperationMode _currentMode = OperationMode.AutoAlign;
 
         // UI References
         private VisualElement _listContainer;
@@ -25,19 +27,24 @@ namespace NamPhuThuy.AssetPipelineTools
         private VisualElement _gridContainer;
         private VisualElement _previewBox;
         
+        private Button _actionBtn;
+        private Button _btnAutoModeRef;
+        private Button _btnManualModeRef;
+        private VisualElement _autoOptionsRow;
+        private VisualElement _manualOptionsRow;
+
         private int _selectedPreviewIndex = 0;
-        private float _detectedAngleDeg = 0f;
 
         // Pixel cache for bilinear interpolation performance
         private Color[] _cachedPixels;
         #endregion
 
         #region Menu Item
-        [MenuItem("NamPhuThuy/Assets Pipeline/Window UITK - Texture Aligner")]
+        [MenuItem("NamPhuThuy/Assets Pipeline/Window UITK - Texture Batch Modify")]
         public static void ShowWindow()
         {
-            var window = GetWindow<Window_TextureAligner>("Texture Aligner");
-            window.minSize = new Vector2(500, 680);
+            var window = GetWindow<Window_TextureBatchModify>("Texture Batch Modify");
+            window.minSize = new Vector2(500, 700);
             window.Show();
         }
         #endregion
@@ -71,7 +78,7 @@ namespace NamPhuThuy.AssetPipelineTools
             // ── Header Section ──
             var headerRow = new VisualElement { style = { flexDirection = FlexDirection.Row, justifyContent = Justify.Center, alignItems = Align.Center, marginBottom = 4 } };
             
-            var header = new Label("Texture Aligner")
+            var header = new Label("Texture Batch Modify")
             {
                 style = { 
                     unityFontStyleAndWeight = FontStyle.Bold, 
@@ -84,13 +91,32 @@ namespace NamPhuThuy.AssetPipelineTools
             root.Add(headerRow);
 
             var helpBox = new HelpBox(
-                "Detects and fixes diagonal asset textures by rotating them perfectly vertical.\n" +
-                "• Moments Analysis: Uses 2D Image Moments to calculate the principal axis angle of non-transparent content.\n" +
+                "Batch processes texture assets to auto-align or custom-rotate them.\n" +
+                "• Auto-Align: Detects and fixes diagonal asset textures by rotating them perfectly vertical.\n" +
+                "• Manual Rotate: Rotates all target textures in the list by a user-specified degree.\n" +
                 "• Bilinear Filtering: Performs premium sub-pixel interpolation to preserve high-res details.\n" +
                 "• Dynamic Negative Space: Re-calculates and shrinks/expands texture size to perfectly wrap around the rotated image with clean padding.",
                 HelpBoxMessageType.Info);
             helpBox.style.marginBottom = 10;
             root.Add(helpBox);
+
+            // ── Mode Selection Tabs ──
+            var modeToggleRow = new VisualElement { style = { flexDirection = FlexDirection.Row, marginBottom = 12 } };
+            
+            var btnAutoMode = new Button(() => { SwitchMode(OperationMode.AutoAlign); }) 
+            { 
+                text = "⚙️ Auto-Align Mode", 
+                style = { flexGrow = 1, height = 28, unityFontStyleAndWeight = FontStyle.Bold } 
+            };
+            var btnManualMode = new Button(() => { SwitchMode(OperationMode.ManualRotate); }) 
+            { 
+                text = "🔄 Manual Rotate Mode", 
+                style = { flexGrow = 1, height = 28, unityFontStyleAndWeight = FontStyle.Bold } 
+            };
+            
+            modeToggleRow.Add(btnAutoMode);
+            modeToggleRow.Add(btnManualMode);
+            root.Add(modeToggleRow);
 
             // ── Main Scroll View ──
             var mainScroll = new ScrollView(ScrollViewMode.Vertical) { style = { flexGrow = 1 } };
@@ -103,18 +129,67 @@ namespace NamPhuThuy.AssetPipelineTools
             // ── Footer Buttons ──
             var buttonRow = new VisualElement { style = { flexDirection = FlexDirection.Row, marginTop = 12 } };
             
-            var rotateBtn = new Button(ProcessAllTextures) 
+            _actionBtn = new Button(ProcessAllTextures) 
             { 
-                text = "🔄 Rotate & Align Textures", 
+                text = "⚙️ Auto-Align Textures", 
                 style = { flexGrow = 1.5f, height = 32, unityFontStyleAndWeight = FontStyle.Bold, backgroundColor = new Color(0.09f, 0.62f, 0.37f) } 
             };
-            buttonRow.Add(rotateBtn);
+            buttonRow.Add(_actionBtn);
 
             root.Add(buttonRow);
 
+            // Save references to mode buttons to style them dynamically
+            _btnAutoModeRef = btnAutoMode;
+            _btnManualModeRef = btnManualMode;
+
             // Initial UI sync
+            RefreshModeStyles();
             RefreshTexturesListUI();
             UpdatePreview();
+        }
+        #endregion
+
+        #region Mode Switching
+        private void SwitchMode(OperationMode mode)
+        {
+            _currentMode = mode;
+            RefreshModeStyles();
+            UpdatePreview();
+        }
+
+        private void RefreshModeStyles()
+        {
+            if (_btnAutoModeRef == null || _btnManualModeRef == null || _actionBtn == null) return;
+
+            Color activeColor = new Color(0.0f, 0.81f, 0.77f);
+            Color inactiveColor = new Color(0.25f, 0.25f, 0.25f);
+
+            if (_currentMode == OperationMode.AutoAlign)
+            {
+                _btnAutoModeRef.style.backgroundColor = activeColor;
+                _btnAutoModeRef.style.color = Color.black;
+                _btnManualModeRef.style.backgroundColor = inactiveColor;
+                _btnManualModeRef.style.color = Color.white;
+
+                _actionBtn.text = "⚙️ Auto-Align Textures";
+                _actionBtn.style.backgroundColor = new Color(0.09f, 0.62f, 0.37f);
+
+                if (_autoOptionsRow != null) _autoOptionsRow.style.display = DisplayStyle.Flex;
+                if (_manualOptionsRow != null) _manualOptionsRow.style.display = DisplayStyle.None;
+            }
+            else
+            {
+                _btnAutoModeRef.style.backgroundColor = inactiveColor;
+                _btnAutoModeRef.style.color = Color.white;
+                _btnManualModeRef.style.backgroundColor = activeColor;
+                _btnManualModeRef.style.color = Color.black;
+
+                _actionBtn.text = "🔄 Batch Rotate Textures";
+                _actionBtn.style.backgroundColor = new Color(0.1f, 0.5f, 0.8f);
+
+                if (_autoOptionsRow != null) _autoOptionsRow.style.display = DisplayStyle.None;
+                if (_manualOptionsRow != null) _manualOptionsRow.style.display = DisplayStyle.Flex;
+            }
         }
         #endregion
 
@@ -179,7 +254,7 @@ namespace NamPhuThuy.AssetPipelineTools
             box.style.flexGrow = 1;
 
             var titleRow = new VisualElement { style = { flexDirection = FlexDirection.Row, justifyContent = Justify.SpaceBetween, alignItems = Align.Center, marginBottom = 6 } };
-            var title = new Label("Target Textures to Align") { style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 13, color = Color.white } };
+            var title = new Label("Target Textures to Modify") { style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 13, color = Color.white } };
             
             var addSelectedBtn = new Button(AddCurrentlySelectedTextures)
             {
@@ -246,21 +321,65 @@ namespace NamPhuThuy.AssetPipelineTools
 
             box.Add(dragArea);
 
-            // Options Row
-            var optionsRow = new VisualElement { style = { flexDirection = FlexDirection.Row, marginTop = 10, justifyContent = Justify.SpaceBetween } };
-            
-            var backupToggle = new Toggle("Auto-Backup") { value = _autoBackup };
-            backupToggle.RegisterValueChangedCallback(evt => _autoBackup = evt.newValue);
-            optionsRow.Add(backupToggle);
+            // Options Container
+            var optionsContainer = new VisualElement { style = { marginTop = 10 } };
 
-            var thresholdField = new FloatField("Min Angle Threshold (Deg)") { value = _minAngleThreshold, style = { width = 200 } };
+            // Backup Row (global)
+            var backupRow = new VisualElement { style = { flexDirection = FlexDirection.Row, marginBottom = 6 } };
+            var backupToggle = new Toggle("Auto-Backup before modifying") { value = _autoBackup };
+            backupToggle.RegisterValueChangedCallback(evt => _autoBackup = evt.newValue);
+            backupRow.Add(backupToggle);
+            optionsContainer.Add(backupRow);
+
+            // Auto Options Row
+            _autoOptionsRow = new VisualElement { style = { flexDirection = FlexDirection.Row, justifyContent = Justify.SpaceBetween } };
+            var thresholdField = new FloatField("Min Angle Threshold (Deg)") { value = _minAngleThreshold, style = { width = 240 } };
             thresholdField.RegisterValueChangedCallback(evt => {
                 _minAngleThreshold = Mathf.Clamp(evt.newValue, 0.5f, 45f);
                 UpdatePreview();
             });
-            optionsRow.Add(thresholdField);
+            _autoOptionsRow.Add(thresholdField);
+            optionsContainer.Add(_autoOptionsRow);
 
-            box.Add(optionsRow);
+            // Manual Options Row
+            _manualOptionsRow = new VisualElement { style = { flexDirection = FlexDirection.Row, justifyContent = Justify.SpaceBetween, alignItems = Align.Center } };
+            var manualAngleField = new FloatField("Manual Rotation Angle (Deg)") { value = _manualRotationAngle, style = { width = 240 } };
+            manualAngleField.RegisterValueChangedCallback(evt => {
+                _manualRotationAngle = evt.newValue;
+                UpdatePreview();
+            });
+            _manualOptionsRow.Add(manualAngleField);
+
+            // Preset Buttons Container
+            var presetContainer = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+            var presetLabel = new Label("Presets:") { style = { fontSize = 11, color = Color.gray, marginRight = 4 } };
+            presetContainer.Add(presetLabel);
+
+            float[] presets = { 45f, -45f, 90f, -90f, 180f };
+            foreach (var preset in presets)
+            {
+                string buttonText = preset > 0 ? $"+{preset}°" : $"{preset}°";
+                var btn = new Button(() => {
+                    manualAngleField.value = preset;
+                })
+                {
+                    text = buttonText,
+                    style = {
+                        height = 20,
+                        fontSize = 10,
+                        marginLeft = 2,
+                        marginRight = 2,
+                        unityFontStyleAndWeight = FontStyle.Bold,
+                        backgroundColor = new Color(0.22f, 0.22f, 0.22f),
+                        color = Color.white
+                    }
+                };
+                presetContainer.Add(btn);
+            }
+            _manualOptionsRow.Add(presetContainer);
+            optionsContainer.Add(_manualOptionsRow);
+
+            box.Add(optionsContainer);
 
             return box;
         }
@@ -407,13 +526,21 @@ namespace NamPhuThuy.AssetPipelineTools
                     AnalyzeOrientation(tex, out centerX, out centerY, out float theta);
                     angleDeg = theta * Mathf.Rad2Deg;
 
-                    float rotToPositive90 = NormalizeAngle(90f - angleDeg);
-                    float rotToNegative90 = NormalizeAngle(-90f - angleDeg);
-                    finalRotDeg = (Mathf.Abs(rotToPositive90) < Mathf.Abs(rotToNegative90)) ? rotToPositive90 : rotToNegative90;
-                    statusOk = Mathf.Abs(finalRotDeg) < _minAngleThreshold;
+                    if (_currentMode == OperationMode.AutoAlign)
+                    {
+                        float rotToPositive90 = NormalizeAngle(90f - angleDeg);
+                        float rotToNegative90 = NormalizeAngle(-90f - angleDeg);
+                        finalRotDeg = (Mathf.Abs(rotToPositive90) < Mathf.Abs(rotToNegative90)) ? rotToPositive90 : rotToNegative90;
+                        statusOk = Mathf.Abs(finalRotDeg) < _minAngleThreshold;
+                    }
+                    else
+                    {
+                        finalRotDeg = _manualRotationAngle;
+                        statusOk = Mathf.Abs(finalRotDeg) < 0.01f;
+                    }
                 }
 
-                // Grid card element (64x64 px image container -> about 80% of original 80px)
+                // Grid card element (64x64 px image container)
                 var card = new VisualElement
                 {
                     style = {
@@ -470,7 +597,8 @@ namespace NamPhuThuy.AssetPipelineTools
                 };
                 card.Add(nameLabel);
 
-                var angleLabel = new Label($"{angleDeg:F0}°")
+                string angleText = _currentMode == OperationMode.AutoAlign ? $"{angleDeg:F0}°" : $"{finalRotDeg:F0}°";
+                var angleLabel = new Label(angleText)
                 {
                     style = {
                         fontSize = 8,
@@ -496,9 +624,17 @@ namespace NamPhuThuy.AssetPipelineTools
                 // Show selected details in full HUD label below
                 if (index == _selectedPreviewIndex)
                 {
-                    string statusText = !statusOk
-                        ? $"<color=#ffaa00><b>DIAGONAL DETECTED</b></color>\n• Needs Rotation: <b>{finalRotDeg:F1}°</b> to align vertical." 
-                        : "<color=#00ff88><b>ALREADY VERTICAL</b></color>\n• Angle offset within threshold.";
+                    string statusText;
+                    if (_currentMode == OperationMode.AutoAlign)
+                    {
+                        statusText = !statusOk
+                            ? $"<color=#ffaa00><b>DIAGONAL DETECTED</b></color>\n• Needs Rotation: <b>{finalRotDeg:F1}°</b> to align vertical." 
+                            : "<color=#00ff88><b>ALREADY VERTICAL</b></color>\n• Angle offset within threshold.";
+                    }
+                    else
+                    {
+                        statusText = $"<color=#00ccff><b>MANUAL ROTATION MODE</b></color>\n• Will rotate content by <b>{_manualRotationAngle:F1}°</b> around its center of mass.";
+                    }
 
                     _previewLabel.text = $"<b>Selected Asset</b>: {tex.name}\n" +
                                          $"• Original Dimensions: {tex.width}x{tex.height}\n" +
@@ -519,11 +655,11 @@ namespace NamPhuThuy.AssetPipelineTools
                 return;
             }
 
-            Debug.Log($"[Aligner] Start: count={_texturesToProcess.Count}");
+            Debug.Log($"[TextureBatchModify] Start: count={_texturesToProcess.Count}, Mode={_currentMode}");
 
             int processedCount = 0;
             int skippedCount = 0;
-            List<Texture2D> alignedTextures = new List<Texture2D>();
+            List<Texture2D> modifiedTextures = new List<Texture2D>();
 
             try
             {
@@ -533,14 +669,14 @@ namespace NamPhuThuy.AssetPipelineTools
                 {
                     if (tex == null)
                     {
-                        Debug.LogError("[Aligner] Null reference!");
+                        Debug.LogError("[TextureBatchModify] Null reference!");
                         continue;
                     }
 
                     string assetPath = AssetDatabase.GetAssetPath(tex);
                     if (string.IsNullOrEmpty(assetPath))
                     {
-                        Debug.LogError($"[Aligner] Path failed: '{tex.name}'");
+                        Debug.LogError($"[TextureBatchModify] Path failed: '{tex.name}'");
                         continue;
                     }
 
@@ -548,7 +684,7 @@ namespace NamPhuThuy.AssetPipelineTools
                     var importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
                     if (importer == null)
                     {
-                        Debug.LogError($"[Aligner] Importer failed: '{assetPath}'");
+                        Debug.LogError($"[TextureBatchModify] Importer failed: '{assetPath}'");
                         continue;
                     }
 
@@ -566,31 +702,50 @@ namespace NamPhuThuy.AssetPipelineTools
                     var readableTex = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
                     if (readableTex == null)
                     {
-                        Debug.LogError($"[Aligner] Load failed: '{assetPath}'");
+                        Debug.LogError($"[TextureBatchModify] Load failed: '{assetPath}'");
                         continue;
                     }
 
                     AnalyzeOrientation(readableTex, out float centerX, out float centerY, out float theta);
                     float currentAngleDeg = theta * Mathf.Rad2Deg;
 
-                    float rotToPositive90 = NormalizeAngle(90f - currentAngleDeg);
-                    float rotToNegative90 = NormalizeAngle(-90f - currentAngleDeg);
-                    float finalRotDeg = (Mathf.Abs(rotToPositive90) < Mathf.Abs(rotToNegative90)) ? rotToPositive90 : rotToNegative90;
-
-                    Debug.Log($"[Aligner] Analyze '{readableTex.name}': tilt={currentAngleDeg:F1}°, rec={finalRotDeg:F1}°, thresh={_minAngleThreshold}°");
-
-                    if (Mathf.Abs(finalRotDeg) < _minAngleThreshold)
+                    float finalRotDeg = 0f;
+                    if (_currentMode == OperationMode.AutoAlign)
                     {
-                        skippedCount++;
-                        Debug.Log($"[Aligner] Skip '{readableTex.name}': vertical");
-                        // Restore importer
-                        if (!wasReadable)
+                        float rotToPositive90 = NormalizeAngle(90f - currentAngleDeg);
+                        float rotToNegative90 = NormalizeAngle(-90f - currentAngleDeg);
+                        finalRotDeg = (Mathf.Abs(rotToPositive90) < Mathf.Abs(rotToNegative90)) ? rotToPositive90 : rotToNegative90;
+
+                        if (Mathf.Abs(finalRotDeg) < _minAngleThreshold)
                         {
-                            importer.isReadable = false;
-                            importer.SaveAndReimport();
+                            skippedCount++;
+                            Debug.Log($"[TextureBatchModify] Skip '{readableTex.name}': vertical");
+                            // Restore importer
+                            if (!wasReadable)
+                            {
+                                importer.isReadable = false;
+                                importer.SaveAndReimport();
+                            }
+                            continue;
                         }
-                        continue;
                     }
+                    else
+                    {
+                        finalRotDeg = _manualRotationAngle;
+                        if (Mathf.Abs(finalRotDeg) < 0.01f)
+                        {
+                            skippedCount++;
+                            Debug.Log($"[TextureBatchModify] Skip '{readableTex.name}': angle is zero");
+                            if (!wasReadable)
+                            {
+                                importer.isReadable = false;
+                                importer.SaveAndReimport();
+                            }
+                            continue;
+                        }
+                    }
+
+                    Debug.Log($"[TextureBatchModify] Processing '{readableTex.name}': angle={finalRotDeg:F1}°");
 
                     // Perform backup if requested
                     if (_autoBackup)
@@ -600,7 +755,7 @@ namespace NamPhuThuy.AssetPipelineTools
                         string ext = Path.GetExtension(assetPath);
                         string backupPath = $"{dir}/{filename}_Backup{ext}";
                         AssetDatabase.CopyAsset(assetPath, backupPath);
-                        Debug.Log($"[Aligner] Backup: '{backupPath}'");
+                        Debug.Log($"[TextureBatchModify] Backup: '{backupPath}'");
                     }
 
                     // Rotate the texture
@@ -627,11 +782,11 @@ namespace NamPhuThuy.AssetPipelineTools
                         File.WriteAllBytes(assetPath, bytes);
                         DestroyImmediate(rotatedTex);
                         processedCount++;
-                        alignedTextures.Add(tex);
+                        modifiedTextures.Add(tex);
                     }
                     else
                     {
-                        Debug.LogError($"[Aligner] Rotate failed: '{readableTex.name}'");
+                        Debug.LogError($"[TextureBatchModify] Rotate failed: '{readableTex.name}'");
                     }
 
                     // Restore importer settings and ensure Read/Write is unticked after modifying the texture
@@ -639,7 +794,6 @@ namespace NamPhuThuy.AssetPipelineTools
                     var postImporter = AssetImporter.GetAtPath(assetPath) as TextureImporter;
                     if (postImporter != null)
                     {
-                        Debug.Log($"[Aligner] set readable back to FALSE");
                         postImporter.isReadable = false;
                         postImporter.SaveAndReimport();
                     }
@@ -651,24 +805,25 @@ namespace NamPhuThuy.AssetPipelineTools
                 AssetDatabase.Refresh();
             }
 
-            // Remove successfully aligned textures from the target process list so that UpdatePreview()
-            // doesn't force them back to readable = true
-            if (alignedTextures.Count > 0)
+            // Remove successfully processed textures from the target process list
+            if (modifiedTextures.Count > 0)
             {
-                Undo.RecordObject(this, "Align and Remove Textures");
-                foreach (var aligned in alignedTextures)
+                Undo.RecordObject(this, "Modify and Remove Textures");
+                foreach (var mod in modifiedTextures)
                 {
-                    _texturesToProcess.Remove(aligned);
+                    _texturesToProcess.Remove(mod);
                 }
                 RefreshTexturesListUI();
             }
 
             UpdatePreview();
-            Debug.Log($"[Aligner] Done: aligned={processedCount}, skipped={skippedCount}");
-            EditorUtility.DisplayDialog("Rotation Complete",
-                $"Successfully aligned diagonal textures!\n\n" +
-                $"• Aligned & Center-stabilized: {processedCount}\n" +
-                $"• Skipped (Already vertical): {skippedCount}", "OK");
+            Debug.Log($"[TextureBatchModify] Done: processed={processedCount}, skipped={skippedCount}");
+            
+            string verb = _currentMode == OperationMode.AutoAlign ? "auto-aligned" : "manually rotated";
+            EditorUtility.DisplayDialog("Operation Complete",
+                $"Successfully {verb} target textures!\n\n" +
+                $"• Modified & Stabilized: {processedCount}\n" +
+                $"• Skipped/Unchanged: {skippedCount}", "OK");
         }
 
         private Texture2D RotateAndCenterTexture(Texture2D tex, float rotationAngleRad, float centerX, float centerY)
@@ -709,8 +864,6 @@ namespace NamPhuThuy.AssetPipelineTools
             }
 
             // 2. Compute the bounding box of the non-transparent pixels AFTER rotation
-            // We rotate each non-transparent pixel's coordinate relative to the centroid (centerX, centerY)
-            // to find the tightest possible rotated bounds, cutting out excess negative space.
             float rotCos = Mathf.Cos(rotationAngleRad);
             float rotSin = Mathf.Sin(rotationAngleRad);
 
@@ -740,7 +893,7 @@ namespace NamPhuThuy.AssetPipelineTools
                 }
             }
 
-            // Fallback: if no visible pixels found, rotate the corners of the original bounding box relative to the centroid
+            // Fallback: if no visible pixels found, rotate original bounds
             if (!foundVisibleRotated)
             {
                 Vector2[] corners = new Vector2[]
@@ -769,7 +922,7 @@ namespace NamPhuThuy.AssetPipelineTools
             float rotWidth = rotatedMaxX - rotatedMinX;
             float rotHeight = rotatedMaxY - rotatedMinY;
 
-            // 3. Define new texture dimensions tightly fitting the rotated visual contents (2px safety margin to avoid edge cutoffs)
+            // 3. Define new texture dimensions tightly fitting the rotated visual contents (2px safety margin)
             int paddingX = 2;
             int paddingY = 2;
             int newWidth = Mathf.RoundToInt(rotWidth) + paddingX;
@@ -779,11 +932,9 @@ namespace NamPhuThuy.AssetPipelineTools
             if (newWidth % 2 != 0) newWidth++;
             if (newHeight % 2 != 0) newHeight++;
 
-            // Impose sensible limits (min size 32, max size 2048)
+            // Impose limits
             newWidth = Mathf.Clamp(newWidth, 32, 2048);
             newHeight = Mathf.Clamp(newHeight, 32, 2048);
-
-            Debug.Log($"[Aligner] Bounds '{tex.name}': foot={rotWidth:F1}x{rotHeight:F1}, box=({minX:F1},{minY:F1})-({maxX:F1},{maxY:F1}), canvas={newWidth}x{newHeight}, pad={paddingX}x{paddingY}");
 
             // 4. Create the new texture of the appropriate size
             Texture2D result = new Texture2D(newWidth, newHeight, TextureFormat.RGBA32, false);
@@ -792,7 +943,7 @@ namespace NamPhuThuy.AssetPipelineTools
             float targetCenterX = newWidth / 2f;
             float targetCenterY = newHeight / 2f;
 
-            // Centroid of the rotated visual box relative to the original center of mass
+            // Centroid of the rotated visual box relative to original center of mass
             float rotCentroidX = (rotatedMinX + rotatedMaxX) / 2f;
             float rotCentroidY = (rotatedMinY + rotatedMaxY) / 2f;
 
@@ -909,7 +1060,6 @@ namespace NamPhuThuy.AssetPipelineTools
                 }
             }
 
-            // Atan2(2 * mu11, mu20 - mu02) yields angle of the major axis relative to horizontal
             theta = 0.5f * Mathf.Atan2((float)(2.0 * mu11), (float)(mu20 - mu02));
         }
 
@@ -964,5 +1114,5 @@ namespace NamPhuThuy.AssetPipelineTools
         }
         #endregion
     }
-#endif
 }
+#endif

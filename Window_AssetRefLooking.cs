@@ -11,7 +11,7 @@ using UnityEditor.UIElements;
 namespace NamPhuThuy.AssetPipelineTools
 {
 #if UNITY_EDITOR
-    public class Window_AssetRefLooking_UITK : EditorWindow
+    public class Window_AssetRefLooking : EditorWindow
     {
         #region Private Fields
         [SerializeField] private List<RefLookingEntry> _entries = new List<RefLookingEntry>();
@@ -35,10 +35,10 @@ namespace NamPhuThuy.AssetPipelineTools
         #endregion
 
         #region Menu Item
-        [MenuItem("NamPhuThuy/Assets Pipeline/Window UITK - Asset Ref Looking")]
+        [MenuItem("NamPhuThuy/Assets Pipeline/Window - Asset Ref Looking")]
         public static void ShowWindow()
         {
-            var window = GetWindow<Window_AssetRefLooking_UITK>("Asset Ref Looking (UITK)");
+            var window = GetWindow<Window_AssetRefLooking>("Asset Ref Looking");
             window.minSize = new Vector2(600, 500);
             window.Show();
         }

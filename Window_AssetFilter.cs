@@ -1,14 +1,12 @@
+#if UNITY_EDITOR
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
-#if UNITY_EDITOR
 using UnityEditor;
-#endif
 
 namespace NamPhuThuy.AssetPipelineTools
 {
-#if UNITY_EDITOR
     public class Window_AssetFilter : EditorWindow
     {
         #region Private Fields
@@ -517,5 +515,5 @@ namespace NamPhuThuy.AssetPipelineTools
         }
         #endregion
     }
-#endif
 }
+#endif

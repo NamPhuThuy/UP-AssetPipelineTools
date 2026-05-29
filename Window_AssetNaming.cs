@@ -1,16 +1,14 @@
+#if UNITY_EDITOR
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
-#if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.UIElements;
-#endif
 
 namespace NamPhuThuy.AssetPipelineTools
 {
-#if UNITY_EDITOR
-    public class Window_AssetNaming_UITK : EditorWindow
+    public class Window_AssetNaming : EditorWindow
     {
         // ── Persisted State ──────────────────────────────────────────────
         [SerializeField] private NamingRule _globalRule = new NamingRule();
@@ -50,10 +48,10 @@ namespace NamPhuThuy.AssetPipelineTools
         private TextField _replaceToCustomField;
 
         // ─────────────────────────────────────────────────────────────────
-        [MenuItem("NamPhuThuy/Assets Pipeline/Window UITK - Asset Naming")]
+        [MenuItem("NamPhuThuy/Assets Pipeline/Window - Asset Naming")]
         public static void ShowWindow()
         {
-            var window = GetWindow<Window_AssetNaming_UITK>("Asset Naming (UITK)");
+            var window = GetWindow<Window_AssetNaming>("Asset Naming");
             window.minSize = new Vector2(960, 640);
             window.Show();
         }
@@ -1090,5 +1088,5 @@ namespace NamPhuThuy.AssetPipelineTools
         public string operationName;
         public List<RenameHistoryEntry> entries = new List<RenameHistoryEntry>();
     }
-#endif
 }
+#endif
