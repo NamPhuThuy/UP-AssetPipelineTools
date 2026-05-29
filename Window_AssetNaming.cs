@@ -83,8 +83,7 @@ namespace NamPhuThuy.AssetPipelineTools
             root.Add(header);
 
             var helpBox = new HelpBox(
-                "Set a Global Template here, or edit each file individually below.\n" +
-                "Categories (Pipeline/Color) are sorted in the dropdown menus.",
+                "Set global templates or edit names individually.",
                 HelpBoxMessageType.Info);
             root.Add(helpBox);
 
@@ -104,7 +103,7 @@ namespace NamPhuThuy.AssetPipelineTools
             actionBar.style.flexDirection = FlexDirection.Row;
             actionBar.style.marginTop = 6;
 
-            var renameBtn = new Button(OnRenameAll) { text = "Rename All Assets" };
+            var renameBtn = new Button(OnRenameAll) { text = "Rename All" };
             renameBtn.AddToClassList("rename-all-btn");
             renameBtn.style.flexGrow = 1;
             actionBar.Add(renameBtn);
@@ -135,7 +134,7 @@ namespace NamPhuThuy.AssetPipelineTools
             var box = new VisualElement();
             box.AddToClassList("section-box");
 
-            var title = new Label("Global Naming Template");
+            var title = new Label("Naming Template");
             title.AddToClassList("section-title");
             box.Add(title);
 
@@ -150,7 +149,7 @@ namespace NamPhuThuy.AssetPipelineTools
                 foreach (var r in _records) r.rule = _globalRule.Clone();
                 RefreshRecordList();
             })
-            { text = "Apply Template to All Below" };
+            { text = "Apply Template" };
             applyBtn.AddToClassList("apply-btn");
             box.Add(applyBtn);
 
@@ -166,7 +165,7 @@ namespace NamPhuThuy.AssetPipelineTools
             var headerRow = new VisualElement();
             headerRow.AddToClassList("toolbar-row");
 
-            _recordCountLabel = new Label($"Target Assets ({_records.Count})");
+            _recordCountLabel = new Label($"Assets ({_records.Count})");
             _recordCountLabel.AddToClassList("section-title");
             headerRow.Add(_recordCountLabel);
 
@@ -178,7 +177,7 @@ namespace NamPhuThuy.AssetPipelineTools
             addSelBtn.AddToClassList("toolbar-btn");
             headerRow.Add(addSelBtn);
 
-            var clearWsBtn = new Button(OnClearWhitespace) { text = "Clear Whitespace" };
+            var clearWsBtn = new Button(OnClearWhitespace) { text = "Clear Space" };
             clearWsBtn.AddToClassList("toolbar-btn");
             headerRow.Add(clearWsBtn);
 
@@ -209,7 +208,7 @@ namespace NamPhuThuy.AssetPipelineTools
             // ── Drop area ──
             var dropArea = new VisualElement();
             dropArea.AddToClassList("drop-area");
-            var dropLabel = new Label("Drag & Drop Assets Here");
+            var dropLabel = new Label("Drag Assets Here");
             dropLabel.AddToClassList("drop-label");
             dropArea.Add(dropLabel);
 
@@ -278,7 +277,7 @@ namespace NamPhuThuy.AssetPipelineTools
             _replaceToCustomField.RegisterValueChangedCallback(e => _replaceToCustom = e.newValue);
             row.Add(_replaceToCustomField);
 
-            var replaceBtn = new Button(OnReplaceConnectChar) { text = "Replace Connect Char" };
+            var replaceBtn = new Button(OnReplaceConnectChar) { text = "Replace" };
             replaceBtn.AddToClassList("toolbar-btn");
             row.Add(replaceBtn);
 
@@ -309,17 +308,17 @@ namespace NamPhuThuy.AssetPipelineTools
             row.Add(allLabel);
 
             var dirToggle = new Button();
-            dirToggle.text = _clearFromRight ? "← R-to-L" : "L-to-R →";
+            dirToggle.text = _clearFromRight ? "← R" : "L →";
             dirToggle.name = "dir-toggle";
             dirToggle.style.width = 70;
             dirToggle.clicked += () =>
             {
                 _clearFromRight = !_clearFromRight;
-                dirToggle.text = _clearFromRight ? "← R-to-L" : "L-to-R →";
+                dirToggle.text = _clearFromRight ? "← R" : "L →";
             };
             row.Add(dirToggle);
 
-            var clearBtn = new Button(OnClearSubstring) { text = "Clear Substring" };
+            var clearBtn = new Button(OnClearSubstring) { text = "Remove" };
             clearBtn.AddToClassList("toolbar-btn");
             row.Add(clearBtn);
 
@@ -678,7 +677,7 @@ namespace NamPhuThuy.AssetPipelineTools
             }
 
             int count = PerformBatchRename("Replace Connect Char", renamePairs);
-            Debug.Log($"Replace Connect Char Complete! Updated {count} asset(s). ('{fromChar}' → '{toChar}')");
+            Debug.Log($"Done: {count}");
             RefreshRecordList();
         }
 
@@ -697,7 +696,7 @@ namespace NamPhuThuy.AssetPipelineTools
             }
 
             int count = PerformBatchRename("Clear Whitespace", renamePairs);
-            Debug.Log($"Clear Whitespace Complete! Cleaned {count} asset(s).");
+            Debug.Log($"Done: {count}");
             RefreshRecordList();
         }
 
@@ -731,9 +730,7 @@ namespace NamPhuThuy.AssetPipelineTools
             }
 
             int count = PerformBatchRename("Clear Substring", renamePairs);
-            string dirLabel = _clearFromRight ? "R-to-L" : "L-to-R";
-            string countLabel = removeCount == 0 ? "all" : removeCount.ToString();
-            Debug.Log($"Clear Substring Complete! Removed '{_clearSubstring}' ({countLabel}, {dirLabel}) from {count} asset(s).");
+            Debug.Log($"Done: {count}");
             RefreshRecordList();
         }
 
@@ -764,7 +761,7 @@ namespace NamPhuThuy.AssetPipelineTools
             }
 
             int renamed = PerformBatchRename($"Change Case - {modeNames[mode]}", renamePairs);
-            Debug.Log($"Change Case Complete! Converted {renamed} asset(s) to {modeNames[mode]}.");
+            Debug.Log($"Done: {renamed}");
             RefreshRecordList();
         }
 
@@ -846,7 +843,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             _redoStack.Add(batch);
             AssetDatabase.SaveAssets();
-            Debug.Log($"Undo: Reverted '{batch.operationName}' ({batch.entries.Count} asset(s))");
+            Debug.Log($"Undo Done: {batch.entries.Count}");
             RefreshRecordList();
         }
 
@@ -866,7 +863,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             _undoStack.Add(batch);
             AssetDatabase.SaveAssets();
-            Debug.Log($"Redo: Re-applied '{batch.operationName}' ({batch.entries.Count} asset(s))");
+            Debug.Log($"Redo Done: {batch.entries.Count}");
             RefreshRecordList();
         }
 

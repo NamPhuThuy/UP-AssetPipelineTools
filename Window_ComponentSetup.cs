@@ -51,9 +51,7 @@ namespace NamPhuThuy.AssetPipelineTools
             root.Add(header);
 
             var helpBox = new HelpBox(
-                "Batch configure PolygonCollider2D outlines for GameObjects.\n\n" +
-                "• Target List: Add GameObjects by Drag-and-Drop, using hierarchy selection, or manually.\n" +
-                "• Shape Matching: Automatically deletes old/incorrect colliders and regenerates a PolygonCollider2D matching the active SpriteRenderer.",
+                "Batch configure PolygonCollider2D outlines.",
                 HelpBoxMessageType.Info);
             root.Add(helpBox);
 
@@ -68,7 +66,7 @@ namespace NamPhuThuy.AssetPipelineTools
             
             var runBtn = new Button(ApplyCollidersToTargets) 
             { 
-                text = "Add sprite-matched PolygonCollider2D to targets", 
+                text = "Generate Colliders", 
                 style = { flexGrow = 1, height = 35, unityFontStyleAndWeight = FontStyle.Bold, backgroundColor = new Color(0.15f, 0.6f, 0.3f) } 
             };
             buttonRow.Add(runBtn);
@@ -80,26 +78,14 @@ namespace NamPhuThuy.AssetPipelineTools
         #endregion
 
         #region UI Builders
-        private VisualElement BuildBox()
-        {
-            var box = new VisualElement();
-            box.style.borderTopWidth = 1; box.style.borderBottomWidth = 1; box.style.borderLeftWidth = 1; box.style.borderRightWidth = 1;
-            box.style.borderTopColor = new Color(0.25f, 0.25f, 0.25f, 1f); box.style.borderBottomColor = new Color(0.25f, 0.25f, 0.25f, 1f);
-            box.style.borderLeftColor = new Color(0.25f, 0.25f, 0.25f, 1f); box.style.borderRightColor = new Color(0.25f, 0.25f, 0.25f, 1f);
-            box.style.borderTopLeftRadius = 4; box.style.borderTopRightRadius = 4;
-            box.style.borderBottomLeftRadius = 4; box.style.borderBottomRightRadius = 4;
-            box.style.paddingLeft = 12; box.style.paddingRight = 12; box.style.paddingTop = 12; box.style.paddingBottom = 12;
-            box.style.backgroundColor = new Color(0.22f, 0.22f, 0.22f, 0.8f);
-            box.style.marginBottom = 10;
-            return box;
-        }
+        
 
         private VisualElement BuildListSection()
         {
-            var box = BuildBox();
+            var box = UITK_AssetPipelineHelper.BuildBox();
 
             var titleRow = new VisualElement { style = { flexDirection = FlexDirection.Row, justifyContent = Justify.SpaceBetween, alignItems = Align.Center, marginBottom = 6 } };
-            var title = new Label("Target GameObjects") { style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 13, color = Color.white } };
+            var title = new Label("GameObjects") { style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 13, color = Color.white } };
             _summaryLabel = new Label("0 items") { style = { fontSize = 11, unityFontStyleAndWeight = FontStyle.Italic, color = Color.gray } };
             
             titleRow.Add(title);
@@ -116,14 +102,14 @@ namespace NamPhuThuy.AssetPipelineTools
             
             var addSelectionBtn = new Button(AddSelectedFromHierarchy) 
             { 
-                text = "Add Selected from Hierarchy", 
+                text = "Add Selected", 
                 style = { flexGrow = 1.5f, height = 26, unityFontStyleAndWeight = FontStyle.Bold, backgroundColor = new Color(0.2f, 0.4f, 0.6f) } 
             };
             listButtonsRow.Add(addSelectionBtn);
 
             var clearBtn = new Button(ClearList) 
             { 
-                text = "Clear All", 
+                text = "Clear", 
                 style = { width = 80, height = 26, unityFontStyleAndWeight = FontStyle.Bold, backgroundColor = new Color(0.5f, 0.15f, 0.15f) } 
             };
             listButtonsRow.Add(clearBtn);
@@ -144,7 +130,7 @@ namespace NamPhuThuy.AssetPipelineTools
                 } 
             };
             
-            dragArea.Add(new Label("Drag & Drop GameObjects Here to Add") { style = { fontSize = 11, color = Color.gray, unityFontStyleAndWeight = FontStyle.Bold } });
+            dragArea.Add(new Label("Drag GameObjects Here") { style = { fontSize = 11, color = Color.gray, unityFontStyleAndWeight = FontStyle.Bold } });
             
             dragArea.RegisterCallback<DragUpdatedEvent>(_ =>
             {
@@ -249,7 +235,7 @@ namespace NamPhuThuy.AssetPipelineTools
             var selected = Selection.gameObjects;
             if (selected.Length == 0)
             {
-                EditorUtility.DisplayDialog("Warning", "No GameObjects are currently selected.", "OK");
+                EditorUtility.DisplayDialog("Warning", "No selection.", "OK");
                 return;
             }
 
@@ -268,7 +254,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             if (addedCount == 0)
             {
-                Debug.Log("[Component Setup] Selected GameObjects were already in the target list.");
+                Debug.Log("[Component Setup] Already in list.");
             }
         }
 
@@ -280,7 +266,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             if (_targetGameObjects.Count == 0)
             {
-                EditorUtility.DisplayDialog("Warning", "Target list is empty.", "OK");
+                EditorUtility.DisplayDialog("Warning", "Empty.", "OK");
                 return;
             }
 
@@ -309,10 +295,8 @@ namespace NamPhuThuy.AssetPipelineTools
 
             Undo.CollapseUndoOperations(undoGroup);
 
-            EditorUtility.DisplayDialog("Completed", 
-                $"• Success: {successCount}\n\n" +
-                $"• Skipped (No SpriteRenderer): {failedCount}\n\n" +
-                $"Check console logs for details", "OK");
+            EditorUtility.DisplayDialog("Done", 
+                $"Success={successCount}, Failed={failedCount}", "OK");
         }
 
         private void AddPolygonColliderToMatchSprite(GameObject go)

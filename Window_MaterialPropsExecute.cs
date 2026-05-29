@@ -89,8 +89,7 @@ namespace NamPhuThuy.AssetPipelineTools
         {
             GUILayout.Label("Material Properties Execute", _centeredLabelStyle);
             EditorGUILayout.HelpBox(
-                "Copy or swap properties between two lists of materials.\n" +
-                "Note: Both lists must have the exact same number of materials.",
+                "Copy/swap properties between two material lists of equal size.",
                 MessageType.Info);
         }
 
@@ -106,11 +105,11 @@ namespace NamPhuThuy.AssetPipelineTools
             EditorGUILayout.PropertyField(_propListA, true);
             
             GUILayout.Space(10);
-            if (GUILayout.Button("Add selected to list A", GUILayout.Height(25)))
+            if (GUILayout.Button("Add Selected", GUILayout.Height(25)))
             {
                 AddSelectedMaterials(_propListA);
             }
-            if (GUILayout.Button("Clear from list A", GUILayout.Height(25)))
+            if (GUILayout.Button("Clear", GUILayout.Height(25)))
             {
                 _propListA.ClearArray();
             }
@@ -122,11 +121,11 @@ namespace NamPhuThuy.AssetPipelineTools
             EditorGUILayout.PropertyField(_propListB, true);
             
             GUILayout.Space(10);
-            if (GUILayout.Button("Add selected to list B", GUILayout.Height(25)))
+            if (GUILayout.Button("Add Selected", GUILayout.Height(25)))
             {
                 AddSelectedMaterials(_propListB);
             }
-            if (GUILayout.Button("Clear from list B", GUILayout.Height(25)))
+            if (GUILayout.Button("Clear", GUILayout.Height(25)))
             {
                 _propListB.ClearArray();
             }
@@ -143,7 +142,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             if (!hasValidLists)
             {
-                EditorGUILayout.HelpBox("Lists must be non-empty and have the exact same size.", MessageType.Warning);
+                EditorGUILayout.HelpBox("Size mismatch or empty.", MessageType.Warning);
             }
 
             GUI.enabled = hasValidLists;
@@ -179,7 +178,7 @@ namespace NamPhuThuy.AssetPipelineTools
             
             Color oldBg = GUI.backgroundColor;
             GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
-            if (GUILayout.Button("Clear all materials", GUILayout.Height(30)))
+            if (GUILayout.Button("Clear All", GUILayout.Height(30)))
             {
                 _so.Update();
                 _propListA.ClearArray();
@@ -260,7 +259,7 @@ namespace NamPhuThuy.AssetPipelineTools
             }
 
             Undo.CollapseUndoOperations(undoGroup);
-            Debug.Log($"Successfully copied properties for {count} material pair(s).");
+            Debug.Log($"Done: {count}");
         }
 
         /// <summary>
@@ -324,7 +323,7 @@ namespace NamPhuThuy.AssetPipelineTools
             }
 
             Undo.CollapseUndoOperations(undoGroup);
-            Debug.Log($"Successfully swapped properties for {count} material pair(s).");
+            Debug.Log($"Done: {count}");
         }
         #endregion
     }

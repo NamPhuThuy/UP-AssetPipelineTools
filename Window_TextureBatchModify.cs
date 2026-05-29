@@ -20,9 +20,9 @@ namespace NamPhuThuy.AssetPipelineTools
         [SerializeField] private bool _autoBackup = false;
         [SerializeField] private OperationMode _currentMode = OperationMode.AutoAlign;
 
+        private SerializedObject _serializedObject;
+
         // UI References
-        private VisualElement _listContainer;
-        private Label _summaryLabel;
         private Label _previewLabel;
         private VisualElement _gridContainer;
         private VisualElement _previewBox;
@@ -52,6 +52,7 @@ namespace NamPhuThuy.AssetPipelineTools
         #region Unity Callbacks
         private void OnEnable()
         {
+            _serializedObject = new SerializedObject(this);
             Undo.undoRedoPerformed += OnUndoPerformed;
         }
 
@@ -62,7 +63,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
         private void OnUndoPerformed()
         {
-            RefreshTexturesListUI();
+            if (_serializedObject != null) _serializedObject.Update();
             UpdatePreview();
         }
 
@@ -91,11 +92,7 @@ namespace NamPhuThuy.AssetPipelineTools
             root.Add(headerRow);
 
             var helpBox = new HelpBox(
-                "Batch processes texture assets to auto-align or custom-rotate them.\n" +
-                "• Auto-Align: Detects and fixes diagonal asset textures by rotating them perfectly vertical.\n" +
-                "• Manual Rotate: Rotates all target textures in the list by a user-specified degree.\n" +
-                "• Bilinear Filtering: Performs premium sub-pixel interpolation to preserve high-res details.\n" +
-                "• Dynamic Negative Space: Re-calculates and shrinks/expands texture size to perfectly wrap around the rotated image with clean padding.",
+                "Batch align or rotate texture assets.",
                 HelpBoxMessageType.Info);
             helpBox.style.marginBottom = 10;
             root.Add(helpBox);
@@ -105,12 +102,12 @@ namespace NamPhuThuy.AssetPipelineTools
             
             var btnAutoMode = new Button(() => { SwitchMode(OperationMode.AutoAlign); }) 
             { 
-                text = "⚙️ Auto-Align Mode", 
+                text = "⚙️ Auto-Align", 
                 style = { flexGrow = 1, height = 28, unityFontStyleAndWeight = FontStyle.Bold } 
             };
             var btnManualMode = new Button(() => { SwitchMode(OperationMode.ManualRotate); }) 
             { 
-                text = "🔄 Manual Rotate Mode", 
+                text = "🔄 Rotate", 
                 style = { flexGrow = 1, height = 28, unityFontStyleAndWeight = FontStyle.Bold } 
             };
             
@@ -131,7 +128,7 @@ namespace NamPhuThuy.AssetPipelineTools
             
             _actionBtn = new Button(ProcessAllTextures) 
             { 
-                text = "⚙️ Auto-Align Textures", 
+                text = "Align", 
                 style = { flexGrow = 1.5f, height = 32, unityFontStyleAndWeight = FontStyle.Bold, backgroundColor = new Color(0.09f, 0.62f, 0.37f) } 
             };
             buttonRow.Add(_actionBtn);
@@ -144,7 +141,6 @@ namespace NamPhuThuy.AssetPipelineTools
 
             // Initial UI sync
             RefreshModeStyles();
-            RefreshTexturesListUI();
             UpdatePreview();
         }
         #endregion
@@ -171,7 +167,7 @@ namespace NamPhuThuy.AssetPipelineTools
                 _btnManualModeRef.style.backgroundColor = inactiveColor;
                 _btnManualModeRef.style.color = Color.white;
 
-                _actionBtn.text = "⚙️ Auto-Align Textures";
+                _actionBtn.text = "Align";
                 _actionBtn.style.backgroundColor = new Color(0.09f, 0.62f, 0.37f);
 
                 if (_autoOptionsRow != null) _autoOptionsRow.style.display = DisplayStyle.Flex;
@@ -184,7 +180,7 @@ namespace NamPhuThuy.AssetPipelineTools
                 _btnManualModeRef.style.backgroundColor = activeColor;
                 _btnManualModeRef.style.color = Color.black;
 
-                _actionBtn.text = "🔄 Batch Rotate Textures";
+                _actionBtn.text = "Rotate";
                 _actionBtn.style.backgroundColor = new Color(0.1f, 0.5f, 0.8f);
 
                 if (_autoOptionsRow != null) _autoOptionsRow.style.display = DisplayStyle.None;
@@ -194,25 +190,13 @@ namespace NamPhuThuy.AssetPipelineTools
         #endregion
 
         #region UI Builders
-        private VisualElement BuildBox()
-        {
-            var box = new VisualElement();
-            box.style.borderTopWidth = 1; box.style.borderBottomWidth = 1; box.style.borderLeftWidth = 1; box.style.borderRightWidth = 1;
-            box.style.borderTopColor = new Color(0.28f, 0.28f, 0.28f, 1f); box.style.borderBottomColor = new Color(0.28f, 0.28f, 0.28f, 1f);
-            box.style.borderLeftColor = new Color(0.28f, 0.28f, 0.28f, 1f); box.style.borderRightColor = new Color(0.28f, 0.28f, 0.28f, 1f);
-            box.style.borderTopLeftRadius = 5; box.style.borderTopRightRadius = 5;
-            box.style.borderBottomLeftRadius = 5; box.style.borderBottomRightRadius = 5;
-            box.style.paddingLeft = 12; box.style.paddingRight = 12; box.style.paddingTop = 12; box.style.paddingBottom = 12;
-            box.style.backgroundColor = new Color(0.18f, 0.18f, 0.18f, 0.9f);
-            box.style.marginBottom = 10;
-            return box;
-        }
+        
 
         private VisualElement BuildPreviewSection()
         {
-            _previewBox = BuildBox();
+            _previewBox = UITK_AssetPipelineHelper.BuildBox();
 
-            var title = new Label("Responsive Grid Preview (ALL Targets)") 
+            var title = new Label("Grid Preview") 
             { 
                 style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 13, color = Color.white, marginBottom = 8 } 
             };
@@ -232,7 +216,7 @@ namespace NamPhuThuy.AssetPipelineTools
             _previewBox.Add(_gridContainer);
 
             // Detailed analysis info below
-            _previewLabel = new Label("Select a texture below to preview its orientation.")
+            _previewLabel = new Label("Select texture to preview.")
             {
                 style = {
                     fontSize = 11,
@@ -250,90 +234,30 @@ namespace NamPhuThuy.AssetPipelineTools
 
         private VisualElement BuildTexturesSection()
         {
-            var box = BuildBox();
-            box.style.flexGrow = 1;
-
-            var titleRow = new VisualElement { style = { flexDirection = FlexDirection.Row, justifyContent = Justify.SpaceBetween, alignItems = Align.Center, marginBottom = 6 } };
-            var title = new Label("Target Textures to Modify") { style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 13, color = Color.white } };
-            
-            var addSelectedBtn = new Button(AddCurrentlySelectedTextures)
-            {
-                text = "➕ Add Selected",
-                style = {
-                    height = 20,
-                    fontSize = 10,
-                    unityFontStyleAndWeight = FontStyle.Bold,
-                    backgroundColor = new Color(0.2f, 0.4f, 0.6f),
-                    marginRight = 6
+            var section = UITK_AssetPipelineHelper.BuildAssetListSection<Texture2D>(
+                _serializedObject,
+                "_texturesToProcess",
+                "Target Textures to Modify",
+                "Target Textures List",
+                _texturesToProcess,
+                () => {
+                    UpdatePreview();
                 }
-            };
-            
-            _summaryLabel = new Label("0 textures") { style = { fontSize = 11, unityFontStyleAndWeight = FontStyle.Italic, color = Color.gray } };
-            
-            var titleRightGroup = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
-            titleRightGroup.Add(addSelectedBtn);
-            titleRightGroup.Add(_summaryLabel);
-            
-            titleRow.Add(title);
-            titleRow.Add(titleRightGroup);
-            box.Add(titleRow);
-
-            var scroll = new ScrollView { style = { maxHeight = 160, minHeight = 60, flexGrow = 1 } };
-            _listContainer = new VisualElement();
-            scroll.Add(_listContainer);
-            box.Add(scroll);
-
-            // Drag and Drop Area
-            var dragArea = new VisualElement 
-            { 
-                style = { 
-                    borderTopWidth = 1, borderBottomWidth = 1, borderLeftWidth = 1, borderRightWidth = 1,
-                    borderTopColor = new Color(0.35f, 0.35f, 0.35f, 0.5f), borderBottomColor = new Color(0.35f, 0.35f, 0.35f, 0.5f),
-                    borderLeftColor = new Color(0.35f, 0.35f, 0.35f, 0.5f), borderRightColor = new Color(0.35f, 0.35f, 0.35f, 0.5f),
-                    borderTopLeftRadius = 4, borderTopRightRadius = 4, borderBottomLeftRadius = 4, borderBottomRightRadius = 4,
-                    paddingTop = 10, paddingBottom = 10, marginTop = 10,
-                    alignItems = Align.Center, justifyContent = Justify.Center,
-                    backgroundColor = new Color(0.18f, 0.18f, 0.18f, 0.5f)
-                } 
-            };
-            
-            dragArea.Add(new Label("Drag & Drop Texture2D Assets Here") { style = { fontSize = 11, color = Color.gray, unityFontStyleAndWeight = FontStyle.Bold } });
-            
-            dragArea.RegisterCallback<DragUpdatedEvent>(_ =>
-            {
-                DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
-            });
-            
-            dragArea.RegisterCallback<DragPerformEvent>(_ =>
-            {
-                DragAndDrop.AcceptDrag();
-                Undo.RecordObject(this, "Drag and Drop Textures");
-                foreach (var obj in DragAndDrop.objectReferences)
-                {
-                    if (obj is Texture2D tex && !_texturesToProcess.Contains(tex))
-                    {
-                        _texturesToProcess.Add(tex);
-                    }
-                }
-                RefreshTexturesListUI();
-                UpdatePreview();
-            });
-
-            box.Add(dragArea);
+            );
 
             // Options Container
             var optionsContainer = new VisualElement { style = { marginTop = 10 } };
 
             // Backup Row (global)
             var backupRow = new VisualElement { style = { flexDirection = FlexDirection.Row, marginBottom = 6 } };
-            var backupToggle = new Toggle("Auto-Backup before modifying") { value = _autoBackup };
+            var backupToggle = new Toggle("Backup") { value = _autoBackup };
             backupToggle.RegisterValueChangedCallback(evt => _autoBackup = evt.newValue);
             backupRow.Add(backupToggle);
             optionsContainer.Add(backupRow);
 
             // Auto Options Row
             _autoOptionsRow = new VisualElement { style = { flexDirection = FlexDirection.Row, justifyContent = Justify.SpaceBetween } };
-            var thresholdField = new FloatField("Min Angle Threshold (Deg)") { value = _minAngleThreshold, style = { width = 240 } };
+            var thresholdField = new FloatField("Threshold (Deg)") { value = _minAngleThreshold, style = { width = 240 } };
             thresholdField.RegisterValueChangedCallback(evt => {
                 _minAngleThreshold = Mathf.Clamp(evt.newValue, 0.5f, 45f);
                 UpdatePreview();
@@ -343,7 +267,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             // Manual Options Row
             _manualOptionsRow = new VisualElement { style = { flexDirection = FlexDirection.Row, justifyContent = Justify.SpaceBetween, alignItems = Align.Center } };
-            var manualAngleField = new FloatField("Manual Rotation Angle (Deg)") { value = _manualRotationAngle, style = { width = 240 } };
+            var manualAngleField = new FloatField("Angle (Deg)") { value = _manualRotationAngle, style = { width = 240 } };
             manualAngleField.RegisterValueChangedCallback(evt => {
                 _manualRotationAngle = evt.newValue;
                 UpdatePreview();
@@ -352,7 +276,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             // Preset Buttons Container
             var presetContainer = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
-            var presetLabel = new Label("Presets:") { style = { fontSize = 11, color = Color.gray, marginRight = 4 } };
+            var presetLabel = new Label("Presets") { style = { fontSize = 11, color = Color.gray, marginRight = 4 } };
             presetContainer.Add(presetLabel);
 
             float[] presets = { 45f, -45f, 90f, -90f, 180f };
@@ -379,111 +303,9 @@ namespace NamPhuThuy.AssetPipelineTools
             _manualOptionsRow.Add(presetContainer);
             optionsContainer.Add(_manualOptionsRow);
 
-            box.Add(optionsContainer);
+            section.Add(optionsContainer);
 
-            return box;
-        }
-
-        private void RefreshTexturesListUI()
-        {
-            if (_listContainer == null) return;
-
-            _listContainer.Clear();
-            _texturesToProcess.RemoveAll(t => t == null);
-
-            var localList = new List<Texture2D>(_texturesToProcess);
-
-            _summaryLabel.text = $"{localList.Count} texture(s)";
-
-            if (localList.Count == 0)
-            {
-                var emptyLabel = new Label("No textures added. Drag texture assets above to begin.")
-                {
-                    style = {
-                        fontSize = 11,
-                        unityFontStyleAndWeight = FontStyle.Italic,
-                        color = Color.gray,
-                        marginTop = 6,
-                        unityTextAlign = TextAnchor.MiddleCenter
-                    }
-                };
-                _listContainer.Add(emptyLabel);
-                return;
-            }
-
-            for (int i = 0; i < localList.Count; i++)
-            {
-                int index = i;
-                var tex = localList[index];
-
-                var row = new VisualElement 
-                { 
-                    style = { 
-                        flexDirection = FlexDirection.Row, 
-                        marginBottom = 4, 
-                        alignItems = Align.Center, 
-                        paddingBottom = 4,
-                        borderBottomWidth = 1,
-                        borderBottomColor = new Color(0.18f, 0.18f, 0.18f, 0.5f),
-                        flexShrink = 0,
-                        minHeight = 24
-                    } 
-                };
-
-                var objField = new ObjectField 
-                { 
-                    value = tex, 
-                    objectType = typeof(Texture2D), 
-                    allowSceneObjects = false,
-                    style = { flexGrow = 1, flexShrink = 1 }
-                };
-                
-                objField.RegisterValueChangedCallback(evt => 
-                {
-                    Undo.RecordObject(this, "Change Target Texture Slot");
-                    int curIndex = _texturesToProcess.IndexOf(tex);
-                    if (curIndex >= 0)
-                    {
-                        _texturesToProcess[curIndex] = evt.newValue as Texture2D;
-                    }
-                    UpdatePreview();
-                });
-                row.Add(objField);
-
-                var previewBtn = new Button(() => {
-                    Selection.activeObject = tex;
-                    int curIndex = _texturesToProcess.IndexOf(tex);
-                    if (curIndex >= 0)
-                    {
-                        _selectedPreviewIndex = curIndex;
-                    }
-                    UpdatePreview();
-                }) 
-                { 
-                    text = "👁 Preview", 
-                    style = { height = 20, fontSize = 10, marginLeft = 4, flexShrink = 0 } 
-                };
-                row.Add(previewBtn);
-
-                var removeBtn = new Button(() => 
-                {
-                    Undo.RecordObject(this, "Remove Target Texture");
-                    int curIndex = _texturesToProcess.IndexOf(tex);
-                    if (curIndex >= 0)
-                    {
-                        _texturesToProcess.RemoveAt(curIndex);
-                    }
-                    RefreshTexturesListUI();
-                    UpdatePreview();
-                }) 
-                { 
-                    text = "✕", 
-                    style = { width = 24, height = 20, unityFontStyleAndWeight = FontStyle.Bold, backgroundColor = new Color(0.5f, 0.15f, 0.15f), flexShrink = 0 } 
-                };
-                row.Add(removeBtn);
-
-                _listContainer.Add(row);
-            }
+            return section;
         }
         #endregion
 
@@ -499,7 +321,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             if (localList.Count == 0)
             {
-                _previewLabel.text = "Drag textures to target list to analyze and preview.";
+                _previewLabel.text = "Drag textures to target list.";
                 _previewLabel.style.color = Color.gray;
                 return;
             }
@@ -628,8 +450,8 @@ namespace NamPhuThuy.AssetPipelineTools
                     if (_currentMode == OperationMode.AutoAlign)
                     {
                         statusText = !statusOk
-                            ? $"<color=#ffaa00><b>DIAGONAL DETECTED</b></color>\n• Needs Rotation: <b>{finalRotDeg:F1}°</b> to align vertical." 
-                            : "<color=#00ff88><b>ALREADY VERTICAL</b></color>\n• Angle offset within threshold.";
+                            ? $"<color=#ffaa00><b>DIAGONAL DETECTED</b></color>\n• Needs Rotation: <b>{finalRotDeg:F1}°</b>" 
+                            : "<color=#00ff88><b>ALREADY VERTICAL</b></color>";
                     }
                     else
                     {
@@ -638,10 +460,9 @@ namespace NamPhuThuy.AssetPipelineTools
 
                     _previewLabel.text = $"<b>Selected Asset</b>: {tex.name}\n" +
                                          $"• Original Dimensions: {tex.width}x{tex.height}\n" +
-                                         $"• Calculated Center of Mass: ({centerX:F1}, {centerY:F1})\n" +
+                                         $"• Center of Mass: ({centerX:F1}, {centerY:F1})\n" +
                                          $"• Content Tilt Angle: {angleDeg:F1}°\n" +
-                                         $"• Status: {statusText}\n" +
-                                         $"<i>(Click other grid items to select and view details)</i>";
+                                         $"• Status: {statusText}\n";
                     _previewLabel.style.color = Color.white;
                 }
             }
@@ -651,7 +472,7 @@ namespace NamPhuThuy.AssetPipelineTools
         {
             if (_texturesToProcess.Count == 0)
             {
-                EditorUtility.DisplayDialog("Error", "Texture list is empty.", "OK");
+                EditorUtility.DisplayDialog("Error", "Empty.", "OK");
                 return;
             }
 
@@ -813,17 +634,14 @@ namespace NamPhuThuy.AssetPipelineTools
                 {
                     _texturesToProcess.Remove(mod);
                 }
-                RefreshTexturesListUI();
+                if (_serializedObject != null) _serializedObject.Update();
             }
 
             UpdatePreview();
-            Debug.Log($"[TextureBatchModify] Done: processed={processedCount}, skipped={skippedCount}");
+            Debug.Log($"Done: {processedCount}");
             
-            string verb = _currentMode == OperationMode.AutoAlign ? "auto-aligned" : "manually rotated";
-            EditorUtility.DisplayDialog("Operation Complete",
-                $"Successfully {verb} target textures!\n\n" +
-                $"• Modified & Stabilized: {processedCount}\n" +
-                $"• Skipped/Unchanged: {skippedCount}", "OK");
+            EditorUtility.DisplayDialog("Done",
+                $"Success={processedCount}, Skipped={skippedCount}", "OK");
         }
 
         private Texture2D RotateAndCenterTexture(Texture2D tex, float rotationAngleRad, float centerX, float centerY)
@@ -1108,7 +926,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             if (addedCount > 0)
             {
-                RefreshTexturesListUI();
+                if (_serializedObject != null) _serializedObject.Update();
                 UpdatePreview();
             }
         }

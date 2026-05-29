@@ -44,9 +44,7 @@ namespace NamPhuThuy.AssetPipelineTools
             GUILayout.Space(10);
             GUILayout.Label("Asset Filter", _headerStyle);
             EditorGUILayout.HelpBox(
-                "• Search Folders: add target folders to search in.\n" +
-                "• Filtering: automatically filter the found assets by type or text.\n" +
-                "• Move: batch move all filtered results into a specific folder.",
+                "Filter and batch move assets.",
                 MessageType.Info);
             GUILayout.Space(10);
 
@@ -95,7 +93,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             // Header row with buttons
             EditorGUILayout.BeginHorizontal();
-            GUILayout.Label($"Search Folders ({_targetFolders.Count})", EditorStyles.boldLabel);
+            GUILayout.Label($"Folders ({_targetFolders.Count})", EditorStyles.boldLabel);
             GUILayout.FlexibleSpace();
             if (GUILayout.Button("Add Selected", GUILayout.Width(100)))
             {
@@ -108,7 +106,7 @@ namespace NamPhuThuy.AssetPipelineTools
                     }
                 }
             }
-            if (GUILayout.Button("Clear All", GUILayout.Width(80)))
+            if (GUILayout.Button("Clear", GUILayout.Width(80)))
             {
                 Undo.RecordObject(this, "Clear Folders");
                 _targetFolders.Clear();
@@ -140,7 +138,7 @@ namespace NamPhuThuy.AssetPipelineTools
             // Drop area
             GUILayout.Space(5);
             Rect dropRect = GUILayoutUtility.GetRect(0, 35, GUILayout.ExpandWidth(true));
-            GUI.Box(dropRect, "Drag & Drop Folders Here", _centeredButtonStyle);
+            GUI.Box(dropRect, "Drag Folders Here", _centeredButtonStyle);
             HandleDragAndDrop(dropRect);
 
             EditorGUILayout.EndVertical();
@@ -152,7 +150,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             // Row 1: Text filter
             EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Filter:", EditorStyles.miniLabel, GUILayout.Width(38));
+            GUILayout.Label("Filter", EditorStyles.miniLabel, GUILayout.Width(38));
             _filterText = EditorGUILayout.TextField(_filterText);
             if (GUILayout.Button("Clear", EditorStyles.miniButton, GUILayout.Width(45)))
             {
@@ -163,7 +161,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             // Row 2: Type toggle buttons
             EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Types:", EditorStyles.miniLabel, GUILayout.Width(38));
+            GUILayout.Label("Types", EditorStyles.miniLabel, GUILayout.Width(38));
 
             // All / None shortcuts
             if (GUILayout.Button("All", EditorStyles.miniButton, GUILayout.Width(30)))
@@ -219,7 +217,7 @@ namespace NamPhuThuy.AssetPipelineTools
             bool hasValidFolders = _targetFolders.Count > 0 && _targetFolders.Any(f => f != null);
             GUI.enabled = hasValidFolders;
 
-            if (GUILayout.Button("Find Assets in Folders", _centeredButtonStyle, GUILayout.Height(35)))
+            if (GUILayout.Button("Find Assets", _centeredButtonStyle, GUILayout.Height(35)))
             {
                 FindAssets();
             }
@@ -238,14 +236,14 @@ namespace NamPhuThuy.AssetPipelineTools
             GUILayout.Label("Results", EditorStyles.boldLabel);
             GUILayout.FlexibleSpace();
 
-            GUILayout.Label("Target Folder:", EditorStyles.miniLabel, GUILayout.Width(78));
+            GUILayout.Label("To Folder:", EditorStyles.miniLabel, GUILayout.Width(78));
             _moveTargetFolder = (DefaultAsset)EditorGUILayout.ObjectField(
                 _moveTargetFolder, typeof(DefaultAsset), false, GUILayout.Width(200));
 
             bool canMove = _moveTargetFolder != null && filteredPaths.Count > 0
                            && AssetDatabase.IsValidFolder(AssetDatabase.GetAssetPath(_moveTargetFolder));
             GUI.enabled = canMove;
-            if (GUILayout.Button($"Move ({filteredPaths.Count}) to Folder", GUILayout.Width(180)))
+            if (GUILayout.Button($"Move ({filteredPaths.Count})", GUILayout.Width(180)))
             {
                 MoveResultsToFolder(filteredPaths);
             }
@@ -255,13 +253,13 @@ namespace NamPhuThuy.AssetPipelineTools
             GUILayout.Space(5);
 
             if (filteredPaths.Count > 0)
-                EditorGUILayout.LabelField($"Showing {filteredPaths.Count} result(s).", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField($"{filteredPaths.Count} items", EditorStyles.miniLabel);
 
             _resultsScrollPos = EditorGUILayout.BeginScrollView(_resultsScrollPos, GUILayout.MinHeight(300));
 
             if (_foundAssetPaths.Count > 0 && filteredPaths.Count == 0)
             {
-                EditorGUILayout.LabelField("(No results match the current filter)", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField("(No match)", EditorStyles.miniLabel);
             }
 
             foreach (string refPath in filteredPaths)
@@ -315,7 +313,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             if (validFolderPaths.Length == 0) return;
 
-            EditorUtility.DisplayProgressBar("Finding Assets", "Scanning folders...", 0.5f);
+            EditorUtility.DisplayProgressBar("Scanning", "Scanning...", 0.5f);
 
             string[] guids = AssetDatabase.FindAssets("", validFolderPaths);
             
@@ -337,8 +335,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             if (!AssetDatabase.IsValidFolder(targetFolderPath))
             {
-                EditorUtility.DisplayDialog("Invalid Folder",
-                    $"\"{targetFolderPath}\" is not a valid folder.", "OK");
+                EditorUtility.DisplayDialog("Error", "Invalid folder.", "OK");
                 return;
             }
 
@@ -349,14 +346,13 @@ namespace NamPhuThuy.AssetPipelineTools
 
             if (assetsToMove.Count == 0)
             {
-                EditorUtility.DisplayDialog("Nothing to Move",
-                    "All result assets are already in the target folder.", "OK");
+                EditorUtility.DisplayDialog("Error", "Already in folder.", "OK");
                 return;
             }
 
             bool confirmed = EditorUtility.DisplayDialog(
-                "Move Assets",
-                $"Move {assetsToMove.Count} asset(s) to:\n{targetFolderPath}\n\nThis operation can be undone.",
+                "Confirm",
+                $"Move {assetsToMove.Count} assets to {targetFolderPath}?",
                 "Move", "Cancel");
 
             if (!confirmed) return;
@@ -378,8 +374,8 @@ namespace NamPhuThuy.AssetPipelineTools
                     string destPath = targetFolderPath + "/" + fileName;
 
                     EditorUtility.DisplayProgressBar(
-                        "Moving Assets",
-                        $"Moving {fileName}... ({i + 1}/{assetsToMove.Count})",
+                        "Moving",
+                        $"Moving {i + 1}/{assetsToMove.Count}",
                         (float)i / assetsToMove.Count);
 
                     if (sourcePath != destPath && AssetDatabase.LoadMainAssetAtPath(destPath) != null)
@@ -427,12 +423,9 @@ namespace NamPhuThuy.AssetPipelineTools
                 }
             }
 
-            string message = $"Move complete! Moved {movedCount} asset(s) to {targetFolderPath}.";
-            if (failedCount > 0)
-                message += $" ({failedCount} failed — see Console for details.)";
-
+            string message = $"Moved={movedCount}, Failed={failedCount}";
             Debug.Log(message);
-            EditorUtility.DisplayDialog("Move Complete", message, "OK");
+            EditorUtility.DisplayDialog("Done", message, "OK");
 
             Repaint();
         }

@@ -61,9 +61,7 @@ namespace NamPhuThuy.AssetPipelineTools
             root.Add(header);
 
             var helpBox = new HelpBox(
-                "• Project Assets: finds all other assets in the project that reference them.\n" +
-                "• Hierarchy GameObjects: finds all project assets used by their components (materials, meshes, textures, etc.).\n" +
-                "Drag & drop from Project or Hierarchy, or use 'Add Selected' to populate the list.",
+                "Find references for assets or hierarchy GameObjects.",
                 HelpBoxMessageType.Info);
             root.Add(helpBox);
 
@@ -75,7 +73,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             var findBtn = new Button(FindAllReferences)
             {
-                text = "Find All References",
+                text = "Find",
                 style = { height = 35, marginTop = 10, marginBottom = 10, unityFontStyleAndWeight = FontStyle.Bold }
             };
             mainScroll.Add(findBtn);
@@ -87,34 +85,22 @@ namespace NamPhuThuy.AssetPipelineTools
         #endregion
 
         #region UI Builders
-        private VisualElement BuildBox()
-        {
-            var box = new VisualElement();
-            box.style.borderTopWidth = 1; box.style.borderBottomWidth = 1; box.style.borderLeftWidth = 1; box.style.borderRightWidth = 1;
-            box.style.borderTopColor = new Color(0.15f, 0.15f, 0.15f, 1f); box.style.borderBottomColor = new Color(0.15f, 0.15f, 0.15f, 1f);
-            box.style.borderLeftColor = new Color(0.15f, 0.15f, 0.15f, 1f); box.style.borderRightColor = new Color(0.15f, 0.15f, 0.15f, 1f);
-            box.style.paddingLeft = 5; box.style.paddingRight = 5; box.style.paddingTop = 5; box.style.paddingBottom = 5;
-            box.style.backgroundColor = new Color(0.22f, 0.22f, 0.22f, 0.5f);
-            box.style.borderTopLeftRadius = 3; box.style.borderTopRightRadius = 3;
-            box.style.borderBottomLeftRadius = 3; box.style.borderBottomRightRadius = 3;
-            box.style.marginBottom = 5;
-            return box;
-        }
+        
 
         private VisualElement BuildTargetAssetsSection()
         {
-            var box = BuildBox();
+            var box = UITK_AssetPipelineHelper.BuildBox();
 
             // Header row
             var headerRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 5 } };
-            _targetCountLabel = new Label($"Added Objects ({_entries.Count})") { style = { unityFontStyleAndWeight = FontStyle.Bold } };
+            _targetCountLabel = new Label($"Objects ({_entries.Count})") { style = { unityFontStyleAndWeight = FontStyle.Bold } };
             headerRow.Add(_targetCountLabel);
             
             var spacer = new VisualElement { style = { flexGrow = 1 } };
             headerRow.Add(spacer);
 
             headerRow.Add(new Button(OnAddSelected) { text = "Add Selected", style = { width = 100 } });
-            headerRow.Add(new Button(OnClearAllTargets) { text = "Clear All", style = { width = 80 } });
+            headerRow.Add(new Button(OnClearAllTargets) { text = "Clear", style = { width = 80 } });
             box.Add(headerRow);
 
             var scroll = new ScrollView { style = { maxHeight = 150, minHeight = 40, marginBottom = 5 } };
@@ -124,7 +110,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             // Drop Area
             var dropArea = new VisualElement { style = { height = 35, backgroundColor = new Color(0, 0, 0, 0.1f), alignItems = Align.Center, justifyContent = Justify.Center, borderTopWidth = 1, borderBottomWidth = 1, borderLeftWidth = 1, borderRightWidth = 1, borderTopColor = Color.gray, borderBottomColor = Color.gray, borderLeftColor = Color.gray, borderRightColor = Color.gray } };
-            dropArea.Add(new Label("Drag & Drop Assets or Hierarchy GameObjects Here") { style = { unityFontStyleAndWeight = FontStyle.Bold } });
+            dropArea.Add(new Label("Drag Objects Here") { style = { unityFontStyleAndWeight = FontStyle.Bold } });
 
             dropArea.RegisterCallback<DragUpdatedEvent>(e => { DragAndDrop.visualMode = DragAndDropVisualMode.Copy; });
             dropArea.RegisterCallback<DragPerformEvent>(e =>
@@ -150,10 +136,10 @@ namespace NamPhuThuy.AssetPipelineTools
 
         private VisualElement BuildFilterSection()
         {
-            var box = BuildBox();
+            var box = UITK_AssetPipelineHelper.BuildBox();
 
             var row1 = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
-            row1.Add(new Label("Filter:") { style = { width = 45 } });
+            row1.Add(new Label("Filter") { style = { width = 45 } });
             var filterField = new TextField { value = _filterText, style = { flexGrow = 1 } };
             filterField.RegisterValueChangedCallback(e => { _filterText = e.newValue; RefreshResultsUI(); });
             row1.Add(filterField);
@@ -161,7 +147,7 @@ namespace NamPhuThuy.AssetPipelineTools
             box.Add(row1);
 
             var row2 = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, flexWrap = Wrap.Wrap, marginTop = 5 } };
-            row2.Add(new Label("Types:") { style = { width = 45 } });
+            row2.Add(new Label("Types") { style = { width = 45 } });
             
             row2.Add(new Button(() => { _filterTypeMask = AssetTypeFilter.All; UpdateTypeToggles(); RefreshResultsUI(); }) { text = "All" });
             row2.Add(new Button(() => { _filterTypeMask = 0; UpdateTypeToggles(); RefreshResultsUI(); }) { text = "None" });
@@ -187,7 +173,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
         private VisualElement BuildResultsSection()
         {
-            var box = BuildBox();
+            var box = UITK_AssetPipelineHelper.BuildBox();
 
             var headerRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 5 } };
             headerRow.Add(new Label("Results") { style = { unityFontStyleAndWeight = FontStyle.Bold } });
@@ -288,7 +274,7 @@ namespace NamPhuThuy.AssetPipelineTools
             var moveBtn = root.Q<Button>("moveBtn");
             if (moveBtn != null)
             {
-                moveBtn.text = $"Move ({allFilteredPaths.Count}) to Folder";
+                moveBtn.text = $"Move ({allFilteredPaths.Count})";
                 moveBtn.SetEnabled(_targetFolder != null && allFilteredPaths.Count > 0 && AssetDatabase.IsValidFolder(AssetDatabase.GetAssetPath(_targetFolder)));
             }
 
@@ -304,14 +290,14 @@ namespace NamPhuThuy.AssetPipelineTools
 
                 var foldout = new Foldout
                 {
-                    text = $"{assetName} ({assetTypeName}) — {direction} {entry.referencePaths.Count} asset(s)",
+                    text = $"{assetName} ({assetTypeName}) {entry.referencePaths.Count} refs",
                     value = entry.foldout
                 };
                 foldout.RegisterValueChangedCallback(e => entry.foldout = e.newValue);
 
                 if (filteredPaths.Count == 0)
                 {
-                    foldout.Add(new Label("(No results match the current filter)") { style = { color = Color.gray, marginLeft = 15 } });
+                    foldout.Add(new Label("(No match)") { style = { color = Color.gray, marginLeft = 15 } });
                 }
 
                 foreach (string refPath in filteredPaths)
@@ -450,8 +436,8 @@ namespace NamPhuThuy.AssetPipelineTools
 
                 if (i % 50 == 0)
                 {
-                    if (EditorUtility.DisplayCancelableProgressBar("Scanning Project Assets", 
-                        $"Scanning: {Path.GetFileName(path)}", (float)i / searchablePaths.Count))
+                    if (EditorUtility.DisplayCancelableProgressBar("Scanning", 
+                        "Scanning...", (float)i / searchablePaths.Count))
                     {
                         break;
                     }
@@ -480,8 +466,8 @@ namespace NamPhuThuy.AssetPipelineTools
                 GameObject go = entry.targetAsset as GameObject;
                 if (go == null) continue;
 
-                EditorUtility.DisplayProgressBar("Scanning Scene Objects", 
-                    $"Scanning: {go.name}", (float)e / sceneEntries.Count);
+                EditorUtility.DisplayProgressBar("Scanning", 
+                    "Scanning...", (float)e / sceneEntries.Count);
 
                 var usedAssetPaths = new HashSet<string>();
                 entry.referenceContexts.Clear();
@@ -638,7 +624,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             if (!AssetDatabase.IsValidFolder(targetFolderPath))
             {
-                EditorUtility.DisplayDialog("Invalid Folder", $"\"{targetFolderPath}\" is not a valid folder.", "OK");
+                EditorUtility.DisplayDialog("Error", "Invalid folder.", "OK");
                 return;
             }
 
@@ -646,11 +632,11 @@ namespace NamPhuThuy.AssetPipelineTools
 
             if (assetsToMove.Count == 0)
             {
-                EditorUtility.DisplayDialog("Nothing to Move", "All result assets are already in the target folder.", "OK");
+                EditorUtility.DisplayDialog("Error", "Already in folder.", "OK");
                 return;
             }
 
-            bool confirmed = EditorUtility.DisplayDialog("Move Assets", $"Move {assetsToMove.Count} asset(s) to:\n{targetFolderPath}\n\nThis operation can be undone.", "Move", "Cancel");
+            bool confirmed = EditorUtility.DisplayDialog("Confirm", $"Move {assetsToMove.Count} assets to {targetFolderPath}?", "Move", "Cancel");
             if (!confirmed) return;
 
             Undo.IncrementCurrentGroup();
@@ -669,7 +655,7 @@ namespace NamPhuThuy.AssetPipelineTools
                     string fileName = Path.GetFileName(sourcePath);
                     string destPath = targetFolderPath + "/" + fileName;
 
-                    EditorUtility.DisplayProgressBar("Moving Assets", $"Moving {fileName}... ({i + 1}/{assetsToMove.Count})", (float)i / assetsToMove.Count);
+                    EditorUtility.DisplayProgressBar("Moving", $"Moving {i + 1}/{assetsToMove.Count}", (float)i / assetsToMove.Count);
 
                     if (sourcePath != destPath && AssetDatabase.LoadMainAssetAtPath(destPath) != null)
                     {
@@ -718,10 +704,9 @@ namespace NamPhuThuy.AssetPipelineTools
                 }
             }
 
-            string message = $"Move complete! Moved {movedCount} asset(s) to {targetFolderPath}.";
-            if (failedCount > 0) message += $" ({failedCount} failed — see Console for details.)";
+            string message = $"Moved={movedCount}, Failed={failedCount}";
             Debug.Log(message);
-            EditorUtility.DisplayDialog("Move Complete", message, "OK");
+            EditorUtility.DisplayDialog("Done", message, "OK");
 
             RefreshResultsUI();
         }
