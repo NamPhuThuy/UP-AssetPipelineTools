@@ -917,9 +917,28 @@ namespace NamPhuThuy.AssetPipelineTools
                     newMat.SetTexture(_texturePropertyName, tex);
                 }
 
-                // Create unique asset path
-                string assetName = $"{_baseMaterial.name}_{tex.name}.mat";
+                // Create unique asset path with cleaned names
+                string cleanBaseName = _baseMaterial.name;
+                if (cleanBaseName.StartsWith("PixelDissolve_"))
+                {
+                    cleanBaseName = cleanBaseName.Substring("PixelDissolve_".Length);
+                }
+
+                string cleanTexName = tex.name;
+                if (cleanTexName.StartsWith("PixelDissolve_"))
+                {
+                    cleanTexName = cleanTexName.Substring("PixelDissolve_".Length);
+                }
+                if (cleanTexName.EndsWith(" - 256x256"))
+                {
+                    cleanTexName = cleanTexName.Substring(0, cleanTexName.Length - " - 256x256".Length);
+                }
+
+                string assetName = $"{cleanBaseName}_{cleanTexName}.mat";
                 string assetPath = Path.Combine(folderPath, assetName).Replace("\\", "/");
+
+                // Set internal object name explicitly to ensure it matches the file name (no prefix/suffix)
+                newMat.name = Path.GetFileNameWithoutExtension(assetPath);
 
                 // Save material
                 AssetDatabase.CreateAsset(newMat, assetPath);
@@ -970,7 +989,23 @@ namespace NamPhuThuy.AssetPipelineTools
                     continue;
                 }
 
-                string assetName = $"{_baseMaterial.name}_{tex.name}.mat";
+                string cleanBaseName = _baseMaterial.name;
+                if (cleanBaseName.StartsWith("PixelDissolve_"))
+                {
+                    cleanBaseName = cleanBaseName.Substring("PixelDissolve_".Length);
+                }
+
+                string cleanTexName = tex.name;
+                if (cleanTexName.StartsWith("PixelDissolve_"))
+                {
+                    cleanTexName = cleanTexName.Substring("PixelDissolve_".Length);
+                }
+                if (cleanTexName.EndsWith(" - 256x256"))
+                {
+                    cleanTexName = cleanTexName.Substring(0, cleanTexName.Length - " - 256x256".Length);
+                }
+
+                string assetName = $"{cleanBaseName}_{cleanTexName}.mat";
                 string assetPath = Path.Combine(folderPath, assetName).Replace("\\", "/");
                 var mat = AssetDatabase.LoadAssetAtPath<Material>(assetPath);
                 if (mat != null)
