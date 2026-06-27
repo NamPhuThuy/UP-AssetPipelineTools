@@ -1078,6 +1078,46 @@ namespace NamPhuThuy.AssetPipelineTools
                     renderers[rd].sharedMaterial = mat;
                 }
 
+                // Position label below prefab bounds dynamically
+                float bottomY = -1.2f; // fallback
+                if (renderers != null && renderers.Length > 0)
+                {
+                    bool boundsInitialized = false;
+                    Bounds b = new Bounds();
+                    for (int rd = 0; rd < renderers.Length; rd++)
+                    {
+                        Renderer rend = renderers[rd];
+                        if (rend == null) continue;
+
+                        if (!boundsInitialized)
+                        {
+                            b = rend.bounds;
+                            boundsInitialized = true;
+                        }
+                        else
+                        {
+                            b.Encapsulate(rend.bounds);
+                        }
+                    }
+
+                    if (boundsInitialized)
+                    {
+                        // Calculate relative min Y from the instance's transform position
+                        bottomY = (b.min.y - instance.transform.position.y) - 0.4f;
+                    }
+                }
+
+                // Create TMPro label object
+                GameObject labelObj = new GameObject("Label_Text");
+                labelObj.transform.SetParent(instance.transform);
+                labelObj.transform.localPosition = new Vector3(0f, bottomY, 0f);
+
+                var tmpText = labelObj.AddComponent<TMPro.TextMeshPro>();
+                tmpText.text = mat.name;
+                tmpText.fontSize = 3f;
+                tmpText.alignment = TMPro.TextAlignmentOptions.Center;
+                tmpText.color = Color.white;
+
                 Undo.RegisterCreatedObjectUndo(instance, "Instantiate Test Variant");
                 instantiatedCount++;
             }

@@ -25,6 +25,8 @@ namespace NamPhuThuy.AssetPipelineTools
         // 5. DIALOGS: Use Debug.LogError (or Debug.LogWarning) instead of EditorUtility.DisplayDialog for editor errors/warnings.
         // 6. FOLDERS: For fields representing folder paths, use 'DefaultAsset' fields to allow dragging and dropping folders instead of using simple string fields.
         // 7. CACHING: Provide a 'Reset to Defaults' button in the options panel to clear/override cached or persisted EditorPrefs values that might become stale or invalid.
+        // 8. LISTS: When resetting list fields, avoid re-instantiating them if they are not null. Clear them instead to prevent issues with serialized property bindings.
+        // 9. NOTIFICATIONS: Reduce to use addition window to notify information, just Debug.Log it with color and method name prefix.
         // ───────────────────────────────────────────────────────────────────────
 
         public enum TargetColliderType
@@ -69,27 +71,82 @@ namespace NamPhuThuy.AssetPipelineTools
             EditorPrefs.SetFloat(PREF_KEY_SIMPLIFICATION_TOLERANCE, _simplificationTolerance);
         }
 
+        private const string SIGNATURE_MARK_RELATIVE_PATH = "../../UP_Common/nam_phu_thuy.png";
+
         public void CreateGUI()
         {
             var root = rootVisualElement;
-            root.style.paddingLeft = 18;
-            root.style.paddingRight = 18;
-            root.style.paddingTop = 18;
-            root.style.paddingBottom = 18;
-            root.style.backgroundColor = new Color(0.15f, 0.15f, 0.15f, 1f);
+            root.style.paddingLeft = 14;
+            root.style.paddingRight = 14;
+            root.style.paddingTop = 14;
+            root.style.paddingBottom = 14;
+            root.style.backgroundColor = new Color(0.22f, 0.22f, 0.22f, 1f);
 
-            // ── Header Section ──
-            var header = new Label("Component Setup Tool")
+            // ── Premium Header Block ──
+            var headerRow = new VisualElement
             {
-                style = { 
-                    unityFontStyleAndWeight = FontStyle.Bold, 
-                    fontSize = 18, 
-                    unityTextAlign = TextAnchor.MiddleCenter, 
-                    marginBottom = 8, 
-                    color = new Color(0.3f, 0.75f, 1f) 
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    paddingBottom = 10,
+                    marginBottom = 8,
+                    borderBottomWidth = 1,
+                    borderBottomColor = new Color(0.26f, 0.26f, 0.26f, 0.8f)
                 }
             };
-            root.Add(header);
+
+            var signatureMark = new VisualElement
+            {
+                style =
+                {
+                    width = 44,
+                    height = 44,
+                    marginRight = 12,
+                    borderTopLeftRadius = 6, borderTopRightRadius = 6, borderBottomLeftRadius = 6, borderBottomRightRadius = 6
+                }
+            };
+
+            string scriptPath = AssetDatabase.GetAssetPath(MonoScript.FromScriptableObject(this));
+            string scriptDir = Path.GetDirectoryName(scriptPath);
+            string combinedPath = Path.Combine(scriptDir, SIGNATURE_MARK_RELATIVE_PATH);
+            string fullPath = Path.GetFullPath(combinedPath).Replace("\\", "/");
+            string resolvedPath = "Assets" + fullPath.Substring(Application.dataPath.Length);
+
+            var signatureTex = AssetDatabase.LoadAssetAtPath<Texture2D>(resolvedPath);
+            if (signatureTex != null)
+            {
+                signatureMark.style.backgroundImage = signatureTex;
+            }
+            else
+            {
+                signatureMark.style.backgroundColor = new Color(0.16f, 0.16f, 0.16f, 0.6f);
+            }
+            headerRow.Add(signatureMark);
+
+            var textColumn = new VisualElement { style = { flexGrow = 1 } };
+            var mainTitle = new Label("Component Setup Tool")
+            {
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    fontSize = 16,
+                    color = new Color(0.53f, 0.8f, 0.92f, 1f)
+                }
+            };
+            var subTitle = new Label("Batch configure Polygon/Edge 2D Colliders for GameObjects")
+            {
+                style =
+                {
+                    fontSize = 11,
+                    color = new Color(0.8f, 0.8f, 0.8f, 1f),
+                    unityFontStyleAndWeight = FontStyle.Normal
+                }
+            };
+            textColumn.Add(mainTitle);
+            textColumn.Add(subTitle);
+            headerRow.Add(textColumn);
+            root.Add(headerRow);
 
             var helpBox = new HelpBox(
                 "Batch configure Polygon/Edge 2D Colliders.\n\n" +
@@ -111,17 +168,61 @@ namespace NamPhuThuy.AssetPipelineTools
             // ── Target list Section ──
             mainScroll.Add(BuildListSection());
 
+            // ── Danger Zone ──
+            var dangerBox = UITK_AssetPipelineHelper.BuildBox("Danger Zone / Options");
+            dangerBox.style.borderTopColor = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+            dangerBox.style.borderBottomColor = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+            dangerBox.style.borderLeftColor = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+            dangerBox.style.borderRightColor = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+
+            var resetBtn = new Button(ResetToDefaults)
+            {
+                text = "Reset Configurations to Defaults",
+                style =
+                {
+                    height = 26,
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    backgroundColor = new Color(0.55f, 0.15f, 0.15f, 1f),
+                    color = Color.white,
+                    borderTopLeftRadius = 4, borderTopRightRadius = 4, borderBottomLeftRadius = 4, borderBottomRightRadius = 4
+                }
+            };
+            dangerBox.Add(resetBtn);
+            mainScroll.Add(dangerBox);
+
             // ── Footer Control Buttons ──
             var buttonRow = new VisualElement { style = { flexDirection = FlexDirection.Row, marginTop = 10 } };
             
             var runBtn = new Button(ApplyCollidersToTargets) 
             { 
                 text = "Generate Colliders", 
-                style = { flexGrow = 1, height = 35, unityFontStyleAndWeight = FontStyle.Bold, backgroundColor = new Color(0.15f, 0.6f, 0.3f) } 
+                style = { 
+                    flexGrow = 1, 
+                    height = 35, 
+                    unityFontStyleAndWeight = FontStyle.Bold, 
+                    backgroundColor = new Color(0.0f, 0.47f, 0.74f, 1f),
+                    color = Color.white,
+                    borderTopLeftRadius = 4, borderTopRightRadius = 4, borderBottomLeftRadius = 4, borderBottomRightRadius = 4
+                } 
             };
             buttonRow.Add(runBtn);
 
             root.Add(buttonRow);
+        }
+
+        private void ResetToDefaults()
+        {
+            Debug.Log("<color=red>[Window_ComponentSetup]</color> ResetToDefaults");
+            EditorPrefs.DeleteKey(PREF_KEY_COLLIDER_TYPE);
+            EditorPrefs.DeleteKey(PREF_KEY_SIMPLIFICATION_TOLERANCE);
+
+            _colliderType = TargetColliderType.POLYGON_2D;
+            _simplificationTolerance = 0.01f;
+            
+            if (_targetGameObjects != null) _targetGameObjects.Clear();
+
+            Close();
+            ShowWindow();
         }
         #endregion
 

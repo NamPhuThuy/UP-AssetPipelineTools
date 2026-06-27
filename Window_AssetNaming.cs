@@ -47,6 +47,8 @@ namespace NamPhuThuy.AssetPipelineTools
         private PopupField<string> _replaceToPopup;
         private TextField _replaceToCustomField;
 
+        private const string SIGNATURE_MARK_RELATIVE_PATH = "../../UP_Common/nam_phu_thuy.png";
+
         // ─────────────────────────────────────────────────────────────────
         [MenuItem("NamPhuThuy/Assets Pipeline/Window - Asset Naming")]
         public static void ShowWindow()
@@ -73,14 +75,75 @@ namespace NamPhuThuy.AssetPipelineTools
 
             // Load stylesheet
             var uss = AssetDatabase.LoadAssetAtPath<StyleSheet>(
-                "Assets/_Project/Module RPManage/UP-AssetPipelineTools/Window_AssetNaming.uss");
+                "Assets/_Project/Module RPManage/UP_AssetPipelineTools/Window_AssetNaming.uss");
             if (uss != null) root.styleSheets.Add(uss);
             else ApplyInlineStyles(root);
 
-            // ── Header ──
-            var header = new Label("Batch Asset Renaming Tool");
-            header.AddToClassList("header-label");
-            root.Add(header);
+            // ── Premium Header Block ──
+            var headerRow = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    paddingBottom = 10,
+                    marginBottom = 8,
+                    borderBottomWidth = 1,
+                    borderBottomColor = new Color(0.26f, 0.26f, 0.26f, 0.8f)
+                }
+            };
+
+            var signatureMark = new VisualElement
+            {
+                style =
+                {
+                    width = 44,
+                    height = 44,
+                    marginRight = 12,
+                    borderTopLeftRadius = 6, borderTopRightRadius = 6, borderBottomLeftRadius = 6, borderBottomRightRadius = 6
+                }
+            };
+
+            string scriptPath = AssetDatabase.GetAssetPath(MonoScript.FromScriptableObject(this));
+            string scriptDir = System.IO.Path.GetDirectoryName(scriptPath);
+            string combinedPath = System.IO.Path.Combine(scriptDir, SIGNATURE_MARK_RELATIVE_PATH);
+            string fullPath = System.IO.Path.GetFullPath(combinedPath).Replace("\\", "/");
+            string resolvedPath = "Assets" + fullPath.Substring(Application.dataPath.Length);
+
+            var signatureTex = AssetDatabase.LoadAssetAtPath<Texture2D>(resolvedPath);
+            if (signatureTex != null)
+            {
+                signatureMark.style.backgroundImage = signatureTex;
+            }
+            else
+            {
+                signatureMark.style.backgroundColor = new Color(0.16f, 0.16f, 0.16f, 0.6f);
+            }
+            headerRow.Add(signatureMark);
+
+            var textColumn = new VisualElement { style = { flexGrow = 1 } };
+            var mainTitle = new Label("Batch Asset Renaming Tool")
+            {
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    fontSize = 16,
+                    color = new Color(0.53f, 0.8f, 0.92f, 1f)
+                }
+            };
+            var subTitle = new Label("Configure global naming templates or edit entries individually")
+            {
+                style =
+                {
+                    fontSize = 11,
+                    color = new Color(0.8f, 0.8f, 0.8f, 1f),
+                    unityFontStyleAndWeight = FontStyle.Normal
+                }
+            };
+            textColumn.Add(mainTitle);
+            textColumn.Add(subTitle);
+            headerRow.Add(textColumn);
+            root.Add(headerRow);
 
             var helpBox = new HelpBox(
                 "Set global templates or edit names individually.",
@@ -97,6 +160,32 @@ namespace NamPhuThuy.AssetPipelineTools
 
             // ── Target Assets Section ──
             mainScroll.Add(BuildTargetAssetsSection());
+
+            // ── Danger Zone ──
+            var dangerBox = new VisualElement();
+            dangerBox.AddToClassList("section-box");
+            dangerBox.style.borderTopColor = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+            dangerBox.style.borderBottomColor = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+            dangerBox.style.borderLeftColor = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+            dangerBox.style.borderRightColor = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+
+            var dangerTitle = new Label("Danger Zone / Options") { style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 11, color = new Color(0.9f, 0.4f, 0.4f), marginBottom = 6 } };
+            dangerBox.Add(dangerTitle);
+
+            var resetBtn = new Button(ResetToDefaults)
+            {
+                text = "Reset Configurations to Defaults",
+                style =
+                {
+                    height = 26,
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    backgroundColor = new Color(0.55f, 0.15f, 0.15f, 1f),
+                    color = Color.white,
+                    borderTopLeftRadius = 4, borderTopRightRadius = 4, borderBottomLeftRadius = 4, borderBottomRightRadius = 4
+                }
+            };
+            dangerBox.Add(resetBtn);
+            mainScroll.Add(dangerBox);
 
             // ── Bottom Action Bar ──
             var actionBar = new VisualElement();
@@ -123,6 +212,30 @@ namespace NamPhuThuy.AssetPipelineTools
             root.Add(actionBar);
 
             RefreshRecordList();
+        }
+
+        private void ResetToDefaults()
+        {
+            Debug.Log("<color=red>[Window_AssetNaming]</color> ResetToDefaults");
+
+            _globalRule = new NamingRule();
+            _globalRule.prefixes.Add(new NamePart { valueIndex = 0, connectIndex = 1 });
+            _globalRule.suffixes.Add(new NamePart { valueIndex = 0, connectIndex = 1 });
+
+            _records.Clear();
+            _undoStack.Clear();
+            _redoStack.Clear();
+
+            _replaceFromIndex = 1;
+            _replaceFromCustom = "";
+            _replaceToIndex = 2;
+            _replaceToCustom = "";
+            _clearSubstring = "";
+            _clearCount = 0;
+            _clearFromRight = false;
+
+            Close();
+            ShowWindow();
         }
 
         // ═════════════════════════════════════════════════════════════════

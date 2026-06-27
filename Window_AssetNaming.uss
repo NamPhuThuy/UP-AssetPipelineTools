@@ -1,77 +1,76 @@
 /* ═══════════════════════════════════════════════════════════
    Window_AssetNaming.uss
-   Place at: Assets/Editor/AssetNaming/Window_AssetNaming.uss
+   Place at: Assets/_Project/Module RPManage/UP_AssetPipelineTools/Window_AssetNaming.uss
    ═══════════════════════════════════════════════════════════ */
 
 /* ── Root ──────────────────────────────────────────────────── */
 .root {
     flex-direction: column;
-    padding: 8px;
-    background-color: #2b2b2b;
+    padding: 14px;
+    background-color: #222222;
 }
 
 /* ── Header ────────────────────────────────────────────────── */
 .header-label {
     font-size: 16px;
     -unity-font-style: bold;
-    -unity-text-align: upper-center;
-    color: #e8e8e8;
-    margin-bottom: 6px;
-    margin-top: 4px;
+    -unity-text-align: middle-left;
+    color: #87ceeb;
+    margin-bottom: 2px;
 }
 
 /* ── Section box ───────────────────────────────────────────── */
 .section-box {
-    background-color: #3a3a3a;
-    border-color: #555555;
+    background-color: rgba(26, 26, 26, 0.6);
+    border-color: rgba(42, 42, 42, 0.8);
     border-width: 1px;
     border-radius: 4px;
-    padding: 8px;
-    margin-bottom: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
 }
 
 .section-title {
     font-size: 13px;
     -unity-font-style: bold;
-    color: #d4d4d4;
-    margin-bottom: 6px;
+    color: #87ceeb;
+    margin-bottom: 8px;
 }
 
 /* ── Toolbar row ───────────────────────────────────────────── */
 .toolbar-row {
     flex-direction: row;
     align-items: center;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     flex-wrap: wrap;
 }
 
 .toolbar-btn {
     margin-left: 4px;
-    padding: 2px 8px;
-    background-color: #4a4a4a;
-    color: #e0e0e0;
-    border-color: #666666;
-    border-radius: 3px;
+    padding: 3px 10px;
+    background-color: rgba(26, 26, 26, 0.6);
+    color: #cccccc;
+    border-color: rgba(42, 42, 42, 0.8);
+    border-radius: 4px;
 }
 
 .toolbar-btn:hover {
-    background-color: #5a5a5a;
+    background-color: #333333;
 }
 
 /* ── Apply button ──────────────────────────────────────────── */
 .apply-btn {
     align-self: center;
-    padding: 6px 20px;
+    padding: 6px 24px;
     margin-top: 10px;
-    background-color: #3d6b9e;
+    background-color: #0078bd;
     color: white;
     -unity-font-style: bold;
     border-radius: 4px;
-    border-color: #2a4f7a;
+    border-color: #005c91;
 }
 
 .apply-btn:hover {
-    background-color: #4d7bb0;
+    background-color: #008cdb;
 }
 
 /* ── Rename All button ─────────────────────────────────────── */
@@ -79,15 +78,15 @@
     height: 40px;
     font-size: 14px;
     -unity-font-style: bold;
-    background-color: #4a7c40;
+    background-color: #0078bd;
     color: white;
     border-radius: 4px;
-    border-color: #355a2d;
+    border-color: #005c91;
     margin-top: 8px;
 }
 
 .rename-all-btn:hover {
-    background-color: #5a9050;
+    background-color: #008cdb;
 }
 
 /* ── Rule row (global template) ────────────────────────────── */
@@ -111,8 +110,8 @@
 }
 
 .main-name-col {
-    background-color: #404040;
-    border-color: #606060;
+    background-color: #2b2b2b;
+    border-color: #444444;
     border-width: 1px;
     border-radius: 4px;
     padding: 6px;
@@ -122,8 +121,8 @@
 
 /* ── Name part box ─────────────────────────────────────────── */
 .name-part-box {
-    background-color: #424242;
-    border-color: #5a5a5a;
+    background-color: #2b2b2b;
+    border-color: #444444;
     border-width: 1px;
     border-radius: 3px;
     padding: 4px;
@@ -138,9 +137,9 @@
 
 /* ── Add part button ───────────────────────────────────────── */
 .add-part-btn {
-    background-color: #505050;
-    color: #c8e6c9;
-    border-color: #606060;
+    background-color: #333333;
+    color: #87ceeb;
+    border-color: #444444;
     border-radius: 3px;
     padding: 3px 8px;
     margin-bottom: 4px;
@@ -148,16 +147,16 @@
 }
 
 .add-part-btn:hover {
-    background-color: #606060;
+    background-color: #444444;
 }
 
 /* ── Remove button ─────────────────────────────────────────── */
 .remove-btn {
     width: 20px;
     height: 20px;
-    background-color: #6b3535;
+    background-color: #552222;
     color: #ffaaaa;
-    border-color: #8b4545;
+    border-color: #663333;
     border-radius: 3px;
     padding: 0;
     margin-left: 4px;
@@ -165,7 +164,7 @@
 }
 
 .remove-btn:hover {
-    background-color: #8b4545;
+    background-color: #663333;
 }
 
 /* ── Replace row ───────────────────────────────────────────── */
@@ -175,7 +174,7 @@
     flex-wrap: wrap;
     margin-bottom: 6px;
     padding: 4px;
-    background-color: #333333;
+    background-color: #1a1a1a;
     border-radius: 3px;
 }
 
@@ -190,8 +189,8 @@
 .record-row {
     flex-direction: row;
     align-items: center;
-    background-color: #383838;
-    border-color: #505050;
+    background-color: rgba(26, 26, 26, 0.4);
+    border-color: rgba(42, 42, 42, 0.6);
     border-width: 1px;
     border-radius: 3px;
     padding: 4px;
@@ -200,7 +199,7 @@
 }
 
 .record-row:hover {
-    background-color: #404040;
+    background-color: rgba(26, 26, 26, 0.8);
 }
 
 /* ── Inline rule (compact inside record rows) ──────────────── */
@@ -234,7 +233,7 @@
 /* ── Preview label ─────────────────────────────────────────── */
 .preview-label {
     -unity-font-style: bold;
-    color: #7ec8e3;
+    color: #87ceeb;
     font-size: 12px;
     margin-left: 8px;
     white-space: normal;
@@ -244,8 +243,8 @@
 /* ── Drop area ─────────────────────────────────────────────── */
 .drop-area {
     height: 44px;
-    background-color: #303030;
-    border-color: #5a5a5a;
+    background-color: #1a1a1a;
+    border-color: #444444;
     border-width: 1px;
     border-style: solid;
     border-radius: 4px;
@@ -255,8 +254,8 @@
 }
 
 .drop-area:hover {
-    border-color: #88aabb;
-    background-color: #363636;
+    border-color: #87ceeb;
+    background-color: #222222;
 }
 
 .drop-label {

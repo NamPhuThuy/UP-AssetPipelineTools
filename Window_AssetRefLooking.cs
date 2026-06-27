@@ -44,21 +44,83 @@ namespace NamPhuThuy.AssetPipelineTools
         }
         #endregion
 
+        private const string SIGNATURE_MARK_RELATIVE_PATH = "../../UP_Common/nam_phu_thuy.png";
+
         #region Initialization
         public void CreateGUI()
         {
             var root = rootVisualElement;
-            root.style.paddingLeft = 10;
-            root.style.paddingRight = 10;
-            root.style.paddingTop = 10;
-            root.style.paddingBottom = 10;
+            root.style.backgroundColor = new Color(0.22f, 0.22f, 0.22f, 1f);
+            root.style.paddingLeft = 14;
+            root.style.paddingRight = 14;
+            root.style.paddingTop = 14;
+            root.style.paddingBottom = 14;
 
-            // Header
-            var header = new Label("Asset Reference Looking")
+            // ── Premium Header Block ──
+            var headerRow = new VisualElement
             {
-                style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 16, unityTextAlign = TextAnchor.MiddleCenter, marginBottom = 10 }
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    paddingBottom = 10,
+                    marginBottom = 8,
+                    borderBottomWidth = 1,
+                    borderBottomColor = new Color(0.26f, 0.26f, 0.26f, 0.8f)
+                }
             };
-            root.Add(header);
+
+            var signatureMark = new VisualElement
+            {
+                style =
+                {
+                    width = 44,
+                    height = 44,
+                    marginRight = 12,
+                    borderTopLeftRadius = 6, borderTopRightRadius = 6, borderBottomLeftRadius = 6, borderBottomRightRadius = 6
+                }
+            };
+
+            string scriptPath = AssetDatabase.GetAssetPath(MonoScript.FromScriptableObject(this));
+            string scriptDir = System.IO.Path.GetDirectoryName(scriptPath);
+            string combinedPath = System.IO.Path.Combine(scriptDir, SIGNATURE_MARK_RELATIVE_PATH);
+            string fullPath = System.IO.Path.GetFullPath(combinedPath).Replace("\\", "/");
+            string resolvedPath = "Assets" + fullPath.Substring(Application.dataPath.Length);
+
+            var signatureTex = AssetDatabase.LoadAssetAtPath<Texture2D>(resolvedPath);
+            if (signatureTex != null)
+            {
+                signatureMark.style.backgroundImage = signatureTex;
+            }
+            else
+            {
+                signatureMark.style.backgroundColor = new Color(0.16f, 0.16f, 0.16f, 0.6f);
+            }
+            headerRow.Add(signatureMark);
+
+            var textColumn = new VisualElement { style = { flexGrow = 1 } };
+            var mainTitle = new Label("Asset Reference Looking")
+            {
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    fontSize = 16,
+                    color = new Color(0.53f, 0.8f, 0.92f, 1f)
+                }
+            };
+            var subTitle = new Label("Find references for assets or hierarchy GameObjects")
+            {
+                style =
+                {
+                    fontSize = 11,
+                    color = new Color(0.8f, 0.8f, 0.8f, 1f),
+                    unityFontStyleAndWeight = FontStyle.Normal
+                }
+            };
+            textColumn.Add(mainTitle);
+            textColumn.Add(subTitle);
+            headerRow.Add(textColumn);
+            root.Add(headerRow);
 
             var helpBox = new HelpBox(
                 "Find references for assets or hierarchy GameObjects.",
@@ -74,13 +136,59 @@ namespace NamPhuThuy.AssetPipelineTools
             var findBtn = new Button(FindAllReferences)
             {
                 text = "Find",
-                style = { height = 35, marginTop = 10, marginBottom = 10, unityFontStyleAndWeight = FontStyle.Bold }
+                style =
+                {
+                    height = 35,
+                    marginTop = 10,
+                    marginBottom = 10,
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    backgroundColor = new Color(0.0f, 0.47f, 0.74f, 1f),
+                    color = Color.white,
+                    borderTopLeftRadius = 4, borderTopRightRadius = 4, borderBottomLeftRadius = 4, borderBottomRightRadius = 4
+                }
             };
             mainScroll.Add(findBtn);
 
             mainScroll.Add(BuildResultsSection());
 
+            // ── Danger Zone ──
+            var dangerBox = UITK_AssetPipelineHelper.BuildBox("Danger Zone / Options");
+            dangerBox.style.borderTopColor = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+            dangerBox.style.borderBottomColor = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+            dangerBox.style.borderLeftColor = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+            dangerBox.style.borderRightColor = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+
+            var resetBtn = new Button(ResetToDefaults)
+            {
+                text = "Reset Configurations to Defaults",
+                style =
+                {
+                    height = 26,
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    backgroundColor = new Color(0.55f, 0.15f, 0.15f, 1f),
+                    color = Color.white,
+                    borderTopLeftRadius = 4, borderTopRightRadius = 4, borderBottomLeftRadius = 4, borderBottomRightRadius = 4
+                }
+            };
+            dangerBox.Add(resetBtn);
+            mainScroll.Add(dangerBox);
+
             RefreshTargetList();
+        }
+
+        private void ResetToDefaults()
+        {
+            Debug.Log("<color=red>[Window_AssetRefLooking]</color> ResetToDefaults");
+            _entries.Clear();
+            _isSearching = false;
+            _totalReferencesFound = 0;
+            _filterText = "";
+            _filterTypeMask = AssetTypeFilter.All;
+            _targetFolder = null;
+            _showContextDetails = false;
+
+            Close();
+            ShowWindow();
         }
         #endregion
 
@@ -624,7 +732,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             if (!AssetDatabase.IsValidFolder(targetFolderPath))
             {
-                EditorUtility.DisplayDialog("Error", "Invalid folder.", "OK");
+                Debug.Log("<color=red>[OnMoveResultsClicked][Error] Invalid folder.</color>");
                 return;
             }
 
@@ -632,7 +740,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             if (assetsToMove.Count == 0)
             {
-                EditorUtility.DisplayDialog("Error", "Already in folder.", "OK");
+                Debug.Log("<color=red>[OnMoveResultsClicked][Error] Already in folder.</color>");
                 return;
             }
 
@@ -704,7 +812,7 @@ namespace NamPhuThuy.AssetPipelineTools
 
             string message = $"Moved={movedCount}, Failed={failedCount}";
             Debug.Log(message);
-            EditorUtility.DisplayDialog("Done", message, "OK");
+            Debug.Log($"<color=green>[OnMoveResultsClicked][Done] {message}</color>");
 
             RefreshResultsUI();
         }

@@ -67,28 +67,81 @@ namespace NamPhuThuy.AssetPipelineTools
             UpdatePreview();
         }
 
+        private const string SIGNATURE_MARK_RELATIVE_PATH = "../../UP_Common/nam_phu_thuy.png";
+
         public void CreateGUI()
         {
             var root = rootVisualElement;
-            root.style.paddingLeft = 16;
-            root.style.paddingRight = 16;
-            root.style.paddingTop = 16;
-            root.style.paddingBottom = 16;
-            root.style.backgroundColor = new Color(0.12f, 0.12f, 0.12f, 1f);
+            root.style.paddingLeft = 14;
+            root.style.paddingRight = 14;
+            root.style.paddingTop = 14;
+            root.style.paddingBottom = 14;
+            root.style.backgroundColor = new Color(0.22f, 0.22f, 0.22f, 1f);
 
-            // ── Header Section ──
-            var headerRow = new VisualElement { style = { flexDirection = FlexDirection.Row, justifyContent = Justify.Center, alignItems = Align.Center, marginBottom = 4 } };
-            
-            var header = new Label("Texture Batch Modify")
+            // ── Premium Header Block ──
+            var headerRow = new VisualElement
             {
-                style = { 
-                    unityFontStyleAndWeight = FontStyle.Bold, 
-                    fontSize = 18, 
-                    unityTextAlign = TextAnchor.MiddleCenter, 
-                    color = new Color(0.0f, 0.81f, 0.77f) 
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    paddingBottom = 10,
+                    marginBottom = 8,
+                    borderBottomWidth = 1,
+                    borderBottomColor = new Color(0.26f, 0.26f, 0.26f, 0.8f)
                 }
             };
-            headerRow.Add(header);
+
+            var signatureMark = new VisualElement
+            {
+                style =
+                {
+                    width = 44,
+                    height = 44,
+                    marginRight = 12,
+                    borderTopLeftRadius = 6, borderTopRightRadius = 6, borderBottomLeftRadius = 6, borderBottomRightRadius = 6
+                }
+            };
+
+            string scriptPath = AssetDatabase.GetAssetPath(MonoScript.FromScriptableObject(this));
+            string scriptDir = Path.GetDirectoryName(scriptPath);
+            string combinedPath = Path.Combine(scriptDir, SIGNATURE_MARK_RELATIVE_PATH);
+            string fullPath = Path.GetFullPath(combinedPath).Replace("\\", "/");
+            string resolvedPath = "Assets" + fullPath.Substring(Application.dataPath.Length);
+
+            var signatureTex = AssetDatabase.LoadAssetAtPath<Texture2D>(resolvedPath);
+            if (signatureTex != null)
+            {
+                signatureMark.style.backgroundImage = signatureTex;
+            }
+            else
+            {
+                signatureMark.style.backgroundColor = new Color(0.16f, 0.16f, 0.16f, 0.6f);
+            }
+            headerRow.Add(signatureMark);
+
+            var textColumn = new VisualElement { style = { flexGrow = 1 } };
+            var mainTitle = new Label("Texture Batch Modify")
+            {
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    fontSize = 16,
+                    color = new Color(0.53f, 0.8f, 0.92f, 1f)
+                }
+            };
+            var subTitle = new Label("Batch align or rotate texture assets in project")
+            {
+                style =
+                {
+                    fontSize = 11,
+                    color = new Color(0.8f, 0.8f, 0.8f, 1f),
+                    unityFontStyleAndWeight = FontStyle.Normal
+                }
+            };
+            textColumn.Add(mainTitle);
+            textColumn.Add(subTitle);
+            headerRow.Add(textColumn);
             root.Add(headerRow);
 
             var helpBox = new HelpBox(
@@ -123,13 +176,42 @@ namespace NamPhuThuy.AssetPipelineTools
             mainScroll.Add(BuildPreviewSection());
             mainScroll.Add(BuildTexturesSection());
 
+            // ── Danger Zone ──
+            var dangerBox = UITK_AssetPipelineHelper.BuildBox("Danger Zone / Options");
+            dangerBox.style.borderTopColor = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+            dangerBox.style.borderBottomColor = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+            dangerBox.style.borderLeftColor = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+            dangerBox.style.borderRightColor = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+
+            var resetBtn = new Button(ResetToDefaults)
+            {
+                text = "Reset Configurations to Defaults",
+                style =
+                {
+                    height = 26,
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    backgroundColor = new Color(0.55f, 0.15f, 0.15f, 1f),
+                    color = Color.white,
+                    borderTopLeftRadius = 4, borderTopRightRadius = 4, borderBottomLeftRadius = 4, borderBottomRightRadius = 4
+                }
+            };
+            dangerBox.Add(resetBtn);
+            mainScroll.Add(dangerBox);
+
             // ── Footer Buttons ──
             var buttonRow = new VisualElement { style = { flexDirection = FlexDirection.Row, marginTop = 12 } };
             
             _actionBtn = new Button(ProcessAllTextures) 
             { 
                 text = "Align", 
-                style = { flexGrow = 1.5f, height = 32, unityFontStyleAndWeight = FontStyle.Bold, backgroundColor = new Color(0.09f, 0.62f, 0.37f) } 
+                style = { 
+                    flexGrow = 1.5f, 
+                    height = 32, 
+                    unityFontStyleAndWeight = FontStyle.Bold, 
+                    backgroundColor = new Color(0.0f, 0.47f, 0.74f, 1f),
+                    color = Color.white,
+                    borderTopLeftRadius = 4, borderTopRightRadius = 4, borderBottomLeftRadius = 4, borderBottomRightRadius = 4
+                } 
             };
             buttonRow.Add(_actionBtn);
 
@@ -142,6 +224,20 @@ namespace NamPhuThuy.AssetPipelineTools
             // Initial UI sync
             RefreshModeStyles();
             UpdatePreview();
+        }
+
+        private void ResetToDefaults()
+        {
+            Debug.Log("<color=red>[Window_TextureBatchModify]</color> ResetToDefaults");
+            if (_texturesToProcess != null) _texturesToProcess.Clear();
+            _minAngleThreshold = 2.0f;
+            _manualRotationAngle = 90.0f;
+            _autoBackup = false;
+            _currentMode = OperationMode.AutoAlign;
+            _selectedPreviewIndex = 0;
+
+            Close();
+            ShowWindow();
         }
         #endregion
 
@@ -157,7 +253,7 @@ namespace NamPhuThuy.AssetPipelineTools
         {
             if (_btnAutoModeRef == null || _btnManualModeRef == null || _actionBtn == null) return;
 
-            Color activeColor = new Color(0.0f, 0.81f, 0.77f);
+            Color activeColor = new Color(0.53f, 0.8f, 0.92f, 1f);
             Color inactiveColor = new Color(0.25f, 0.25f, 0.25f);
 
             if (_currentMode == OperationMode.AutoAlign)
@@ -168,7 +264,7 @@ namespace NamPhuThuy.AssetPipelineTools
                 _btnManualModeRef.style.color = Color.white;
 
                 _actionBtn.text = "Align";
-                _actionBtn.style.backgroundColor = new Color(0.09f, 0.62f, 0.37f);
+                _actionBtn.style.backgroundColor = new Color(0.0f, 0.47f, 0.74f, 1f);
 
                 if (_autoOptionsRow != null) _autoOptionsRow.style.display = DisplayStyle.Flex;
                 if (_manualOptionsRow != null) _manualOptionsRow.style.display = DisplayStyle.None;
@@ -181,7 +277,7 @@ namespace NamPhuThuy.AssetPipelineTools
             _btnManualModeRef.style.color = Color.black;
 
             _actionBtn.text = "Rotate";
-            _actionBtn.style.backgroundColor = new Color(0.1f, 0.5f, 0.8f);
+            _actionBtn.style.backgroundColor = new Color(0.0f, 0.47f, 0.74f, 1f);
 
             if (_autoOptionsRow != null) _autoOptionsRow.style.display = DisplayStyle.None;
             if (_manualOptionsRow != null) _manualOptionsRow.style.display = DisplayStyle.Flex;
@@ -471,7 +567,7 @@ namespace NamPhuThuy.AssetPipelineTools
         {
             if (_texturesToProcess.Count == 0)
             {
-                EditorUtility.DisplayDialog("Error", "Empty.", "OK");
+                Debug.Log("<color=red>[ProcessAllTextures][Error] Empty.</color>");
                 return;
             }
 
@@ -645,8 +741,7 @@ namespace NamPhuThuy.AssetPipelineTools
             UpdatePreview();
             Debug.Log($"Done: {processedCount}");
             
-            EditorUtility.DisplayDialog("Done",
-                $"Success={processedCount}, Skipped={skippedCount}", "OK");
+            Debug.Log($"<color=green>[ProcessAllTextures][Done] Success={processedCount}, Skipped={skippedCount}</color>");
         }
 
         private Texture2D RotateAndCenterTexture(Texture2D tex, float rotationAngleRad, float centerX, float centerY)
@@ -913,7 +1008,7 @@ namespace NamPhuThuy.AssetPipelineTools
             Texture2D[] selectedTextures = Selection.GetFiltered<Texture2D>(SelectionMode.Assets);
             if (selectedTextures == null || selectedTextures.Length == 0)
             {
-                EditorUtility.DisplayDialog("No Textures Selected", "Please select one or more Texture2D assets in the Project window first.", "OK");
+                Debug.Log("<color=yellow>[AddCurrentlySelectedTextures][Warning] No Textures Selected: Please select one or more Texture2D assets in the Project window first.</color>");
                 return;
             }
 
