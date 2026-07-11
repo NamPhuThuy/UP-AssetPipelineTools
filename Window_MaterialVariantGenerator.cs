@@ -63,6 +63,7 @@ namespace NamPhuThuy.AssetPipelineTools
         [SerializeField] private int _columnCount = 4;
         [SerializeField] private float _spacingX = DEFAULT_SPACING;
         [SerializeField] private float _spacingY = DEFAULT_SPACING;
+        [SerializeField] private bool _showMaterialList = true;
 
         // Default constants
         private const string DEFAULT_PROP_NAME = "_MainTex";
@@ -79,6 +80,7 @@ namespace NamPhuThuy.AssetPipelineTools
         private const string PREF_KEY_SPACING_X = "NamPhuThuy_MatVarGen_SpacingX";
         private const string PREF_KEY_SPACING_Y = "NamPhuThuy_MatVarGen_SpacingY";
         private const string PREF_KEY_ACTIVE_TAB = "NamPhuThuy_MatVarGen_ActiveTab";
+        private const string PREF_KEY_SHOW_MAT_LIST = "NamPhuThuy_MatVarGen_ShowMatList";
 
         // Signature logo relative path
         private const string SIGNATURE_MARK_RELATIVE_PATH = "../UP-Common/nam_phu_thuy.png";
@@ -108,6 +110,8 @@ namespace NamPhuThuy.AssetPipelineTools
         private FloatField _spacingXField;
         private FloatField _spacingYField;
         private VisualElement _materialListContainer;
+        private VisualElement _materialListSectionWrapper;
+        private Button _toggleListBtn;
 
         private VisualElement _tabHeaderContainer;
         private ScrollView _contentContainer;
@@ -156,6 +160,7 @@ namespace NamPhuThuy.AssetPipelineTools
             _spacingX = EditorPrefs.GetFloat(PREF_KEY_SPACING_X, DEFAULT_SPACING);
             _spacingY = EditorPrefs.GetFloat(PREF_KEY_SPACING_Y, DEFAULT_SPACING);
             _activeTab = (TabType)EditorPrefs.GetInt(PREF_KEY_ACTIVE_TAB, (int)TabType.GENERATOR);
+            _showMaterialList = EditorPrefs.GetBool(PREF_KEY_SHOW_MAT_LIST, true);
         }
 
         private void OnDisable()
@@ -199,6 +204,7 @@ namespace NamPhuThuy.AssetPipelineTools
             EditorPrefs.SetFloat(PREF_KEY_SPACING_X, _spacingX);
             EditorPrefs.SetFloat(PREF_KEY_SPACING_Y, _spacingY);
             EditorPrefs.SetInt(PREF_KEY_ACTIVE_TAB, (int)_activeTab);
+            EditorPrefs.SetBool(PREF_KEY_SHOW_MAT_LIST, _showMaterialList);
         }
 
         public void CreateGUI()
@@ -600,9 +606,24 @@ namespace NamPhuThuy.AssetPipelineTools
             };
             box.Add(autoLoadBtn);
 
+            // Toggle material list button
+            _toggleListBtn = new Button(ToggleMaterialList)
+            {
+                text = _showMaterialList ? "Hide Material List" : "Show Material List",
+                style = { marginBottom = 5 }
+            };
+            box.Add(_toggleListBtn);
+
+            // Material list section wrapper
+            _materialListSectionWrapper = new VisualElement
+            {
+                style = { display = _showMaterialList ? DisplayStyle.Flex : DisplayStyle.None }
+            };
+            box.Add(_materialListSectionWrapper);
+
             // Material list section
             var listHeader = new Label("Materials to Test:") { style = { unityFontStyleAndWeight = FontStyle.Bold, marginTop = 5, marginBottom = 5 } };
-            box.Add(listHeader);
+            _materialListSectionWrapper.Add(listHeader);
 
             var buttonRow = new VisualElement { style = { flexDirection = FlexDirection.Row, marginBottom = 5 } };
 
@@ -627,12 +648,12 @@ namespace NamPhuThuy.AssetPipelineTools
             };
             buttonRow.Add(clearBtn);
 
-            box.Add(buttonRow);
+            _materialListSectionWrapper.Add(buttonRow);
 
             var scroll = new ScrollView { style = { maxHeight = 200, minHeight = 100 } };
             _materialListContainer = new VisualElement();
             scroll.Add(_materialListContainer);
-            box.Add(scroll);
+            _materialListSectionWrapper.Add(scroll);
 
             // Instantiate button
             var instantiateBtn = new Button(InstantiateTestVariants)
@@ -823,6 +844,18 @@ namespace NamPhuThuy.AssetPipelineTools
             {
                 Debug.LogWarning("[MatVarGen] No new Texture2D assets found in selection.");
             }
+        }
+
+        private void ToggleMaterialList()
+        {
+            _showMaterialList = !_showMaterialList;
+            Debug.Log($"[MatVarGen] Toggle Material List to {_showMaterialList}");
+
+            if (_materialListSectionWrapper == null) return;
+            _materialListSectionWrapper.style.display = _showMaterialList ? DisplayStyle.Flex : DisplayStyle.None;
+
+            if (_toggleListBtn == null) return;
+            _toggleListBtn.text = _showMaterialList ? "Hide Material List" : "Show Material List";
         }
 
         private void AddMaterialField()
@@ -1183,6 +1216,7 @@ namespace NamPhuThuy.AssetPipelineTools
             _spacingX = DEFAULT_SPACING;
             _spacingY = DEFAULT_SPACING;
             _activeTab = TabType.GENERATOR;
+            _showMaterialList = true;
             
             if (_textures != null)
             {
@@ -1205,6 +1239,7 @@ namespace NamPhuThuy.AssetPipelineTools
             EditorPrefs.DeleteKey(PREF_KEY_SPACING_X);
             EditorPrefs.DeleteKey(PREF_KEY_SPACING_Y);
             EditorPrefs.DeleteKey(PREF_KEY_ACTIVE_TAB);
+            EditorPrefs.DeleteKey(PREF_KEY_SHOW_MAT_LIST);
 
             // Rebuild GUI
             var root = rootVisualElement;
