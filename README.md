@@ -77,3 +77,18 @@ Filter and extract specific asset types from one or more target folders.
 - **Filtering:** dynamically filter all found assets by text search and asset type (Prefab, Material, Texture, Shader, Script, etc.).
 - **Results Preview:** view all filtered assets in a clean list with ping/select buttons.
 - **Batch Move:** batch-move all filtered results into a new target folder, with automatic name collision handling.
+
+---
+
+# Window_ButtonPrefabReplacer
+
+**Menu:** `NamPhuThuy → Assets Pipeline → Window - Button Prefab Replacer`
+
+Replace button GameObjects (scene or open prefab) with instances of a button prefab, keeping their hierarchy setup.
+
+## Features
+- **Targets:** add via **Add Selected** (Hierarchy selection) or drag into the list. Assets, the prefab root, objects inside another prefab instance and children of another target are skipped (logged).
+- **Kept (toggle in Options):** parent + sibling index, name, active / layer / tag, RectTransform anchors / pivot / position / size / rotation / scale, Button `onClick` / interactable / navigation, label text (TMP or legacy Text), root components the prefab lacks (e.g. `LayoutElement`; visuals and `Selectable` always come from the prefab).
+- **Remap References:** fields in the same scene / prefab that pointed to the old button (its GameObject or root components) point to the new one. Fields left pointing to deleted old children are logged.
+- **Move Old Children** (off by default): keep badges / icons by moving the old children under the new button.
+- **Undo:** one Ctrl+Z reverts the whole batch.
